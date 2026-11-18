@@ -31,7 +31,7 @@ const ENUM_LABELS = {
   held: 'Realizado', draft: 'Rascunho', published: 'Publicado',
   low: 'Baixa', normal: 'Normal', high: 'Alta', urgent: 'Urgente',
   waiting: 'Aguardando', resolved: 'Resolvido',
-  revoked: 'Revogada', repealed: 'Revogada integralmente',
+  repealed: 'Revogada integralmente',
   federal: 'Federal', estadual: 'Estadual', municipal: 'Municipal',
   institucional: 'Institucional'
 };
