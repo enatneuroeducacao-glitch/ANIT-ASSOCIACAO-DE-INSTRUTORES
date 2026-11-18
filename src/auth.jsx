@@ -28,6 +28,7 @@ if (!authUrl || !dataApiUrl) {
         </div>
         <AuthView pathname={pathname} />
         <p className="auth-foot">Acesso exclusivo a usuários previamente autorizados pela administração da ANIT.</p>
+        <p className="auth-foot">A recuperação de senha é processada pelo Neon Auth. O e-mail de redefinição é enviado pelo provedor de autenticação Neon, não pelo e-mail institucional da ANIT. Confira também a caixa de spam.</p>
       </div>
     </NeonAuthUIProvider>
   );
