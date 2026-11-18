@@ -12,9 +12,34 @@
 @media(max-width:1100px){.stats{grid-template-columns:repeat(2,1fr)}.module-grid{grid-template-columns:repeat(2,1fr)}.grid-main{grid-template-columns:1fr}}
 @media(max-width:760px){.shell{grid-template-columns:1fr}.sidebar{position:fixed;z-index:30;inset:0 auto 0 0;width:275px;transform:translateX(-100%);transition:transform .2s;box-shadow:var(--shadow)}.sidebar.open{transform:translateX(0)}.mobile-menu{display:block}.topbar{padding:0 16px;height:66px}.content{padding:22px 16px 40px}.page-head{flex-direction:column}.stats{gap:10px}.stat{padding:14px}.stat-value{font-size:1.5rem}.module-grid{grid-template-columns:1fr 1fr}.status{display:none}}
 @media(max-width:440px){.stats{grid-template-columns:1fr 1fr}.module-grid{grid-template-columns:1fr}.quick-grid{grid-template-columns:1fr}.field-grid{grid-template-columns:1fr}.field.full{grid-column:auto}}
+
+#authGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(135deg,#0b2545,#173e66)}
+#authGate[hidden]{display:none!important}.auth-card{width:min(100%,430px);background:#fff;border-radius:20px;padding:30px;box-shadow:0 20px 60px #06182c55}
+.auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}.auth-brand .brand-mark{flex:0 0 46px}.auth-brand strong{display:block;color:var(--navy);font-size:1.15rem}.auth-brand small{color:var(--muted)}
+.auth-card h1{font-size:1.45rem;color:var(--navy);margin:0 0 6px}.auth-card p{color:var(--muted);font-size:.88rem;margin:0 0 18px}
+.auth-card .field{margin:12px 0}.auth-card .field label{display:block}.auth-card .field input{width:100%}
+.auth-card .btn{width:100%;justify-content:center;margin-top:8px}.auth-card .forgot{border:0;background:none;color:var(--blue);font-weight:750;margin-top:14px;padding:6px}.auth-message{padding:10px 12px;border-radius:9px;margin-top:12px;font-size:.82rem;background:#fff1f0;color:#923333}
+.auth-message[data-kind="success"]{background:#eaf7ef;color:#216b43}.auth-message[hidden]{display:none}
+.shell{display:none}
+
 </style>
 </head>
 <body>
+<div id="authGate">
+  <section class="auth-card" aria-labelledby="loginTitle">
+    <div class="auth-brand"><div class="brand-mark">ANIT</div><div><strong>Central Administrativa</strong><small>Área restrita da associação</small></div></div>
+    <h1 id="loginTitle">Acesso institucional</h1>
+    <p>Entre com sua conta individual previamente autorizada pela administração da ANIT.</p>
+    <form id="signInForm">
+      <div class="field"><label for="loginEmail">E-mail</label><input id="loginEmail" name="email" type="email" autocomplete="username" required placeholder="seu e-mail institucional"></div>
+      <div class="field"><label for="loginPassword">Senha</label><input id="loginPassword" name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"></div>
+      <button class="btn btn-primary" type="submit">Entrar com segurança</button>
+    </form>
+    <button class="forgot" id="forgotPassword" type="button">Esqueci minha senha</button>
+    <div class="auth-message" id="authMessage" role="status" hidden></div>
+    <p style="margin:18px 0 0;font-size:.75rem">O cadastro público está desativado. Solicite ao administrador a criação e liberação da sua conta.</p>
+  </section>
+</div>
 <div class="shell">
 <aside class="sidebar" id="sidebar">
   <div class="brand"><div class="brand-mark">ANIT</div><div><b>Central ANIT</b><small>GESTÃO INSTITUCIONAL</small></div></div>
@@ -36,14 +61,14 @@
     <button data-section="usuarios"><span class="ico">⚙</span> Usuários e permissões</button>
     <button data-section="configuracoes"><span class="ico">☼</span> Configurações</button>
   </nav></div>
-  <div class="sidebar-bottom">ANIT • Associação Nacional de Instrutores de Trânsito<br>Ambiente estrutural — dados reais ainda não conectados.</div>
+  <div class="sidebar-bottom">ANIT • Associação Nacional de Instrutores de Trânsito<br>Ambiente administrativo protegido por autenticação e permissões.</div>
 </aside>
 <main class="main">
-<header class="topbar"><div class="top-actions"><button class="mobile-menu" id="mobileMenu" aria-label="Abrir menu">☰</button><div class="crumb">ANIT / <strong id="crumb">Visão geral</strong></div></div><div class="top-actions"><span class="status">Protótipo — acesso não autenticado</span><div class="avatar">A</div></div></header>
+<header class="topbar"><div class="top-actions"><button class="mobile-menu" id="mobileMenu" aria-label="Abrir menu">☰</button><div class="crumb">ANIT / <strong id="crumb">Visão geral</strong></div></div><div class="top-actions"><span class="status">Acesso autenticado</span><div class="avatar">A</div></div></header>
 <div class="content">
 <section class="section active" id="dashboard">
   <div class="page-head"><div><span class="eyebrow">Gestão institucional</span><h1>Central Administrativa da ANIT</h1><p>Organização, governança e acompanhamento das atividades da associação.</p></div><button class="btn btn-light" onclick="window.location.href='index.html'">↗ Site institucional</button></div>
-  <div class="notice"><strong>Ambiente de estruturação — não utilizar para cadastrar dados pessoais ou financeiros.</strong> Esta primeira versão organiza os módulos e a navegação. O login, as permissões, o banco de dados, os documentos e as operações ainda precisam ser conectados a um serviço seguro no servidor.</div>
+  <div class="notice"><strong>Ambiente restrito da ANIT.</strong> O acesso é individual. As operações são limitadas pelo perfil de usuário e protegidas por políticas de segurança no banco de dados. Não compartilhe suas credenciais.</div>
   <div class="stats">
     <article class="stat"><div class="stat-top">Associados cadastrados <span class="stat-icon">♙</span></div><div class="stat-value">—</div><small>Aguardando banco de dados</small></article>
     <article class="stat"><div class="stat-top">Mensalidades em dia <span class="stat-icon">▤</span></div><div class="stat-value">—</div><small>Aguardando módulo financeiro</small></article>
@@ -51,7 +76,7 @@
     <article class="stat"><div class="stat-top">Documentos emitidos <span class="stat-icon">▣</span></div><div class="stat-value">—</div><small>Aguardando arquivo institucional</small></article>
   </div>
   <div class="grid-main">
-    <div class="panel"><div class="panel-head"><h2>Atividades recentes</h2><span class="muted">Registro institucional</span></div><div class="empty"><div class="empty-icon">◷</div><strong>Nenhuma atividade registrada</strong>Os registros aparecerão aqui quando o banco de dados e a trilha de auditoria forem ativados.</div></div>
+    <div class="panel"><div class="panel-head"><h2>Atividades recentes</h2><span class="muted">Registro institucional</span></div><div class="empty"><div class="empty-icon">◷</div><strong>Nenhuma atividade registrada</strong>Os registros serão apresentados conforme seu perfil e as permissões concedidas.</div></div>
     <div class="panel"><div class="panel-head"><h2>Acesso rápido</h2></div><div class="quick-grid">
       <button class="quick" data-go="associados"><span>♙</span>Novo associado</button>
       <button class="quick" data-go="secretaria"><span>✉</span>Novo protocolo</button>
@@ -68,7 +93,7 @@
     <button class="module-card" data-go="usuarios"><span class="mi">⚙</span><h3>Usuários e permissões</h3><p>Perfis, acessos, autorizações e auditoria administrativa.</p><span class="module-status">Estrutura planejada</span></button>
   </div></div>
 </section>
-<section class="section" id="associados"><div class="page-head"><div><span class="eyebrow">Cadastro e relacionamento</span><h1>Gestão de associados</h1><p>Cadastro, filiação, situação associativa, histórico e emissão de identificação digital.</p></div></div><div class="notice"><strong>Campos previstos para o cadastro</strong>Identificação, CPF, contatos, endereço, registro profissional, categoria de atuação, data de filiação, situação, documentos apresentados, consentimentos LGPD e histórico de alterações. Dados pessoais só serão tratados após autenticação e banco protegido.</div><div class="panel"><div class="panel-head"><h2>Base de associados</h2><button class="btn btn-primary" disabled>＋ Novo cadastro (em implantação)</button></div><div class="empty"><div class="empty-icon">♙</div><strong>Base ainda não conectada</strong>Não existem registros disponíveis neste protótipo.</div></div><div class="panel" style="margin-top:16px"><h2>Recursos previstos</h2><p class="muted">Ficha cadastral completa • aprovação de filiação • situação ativa, suspensa ou desligada • histórico • carteirinha digital com QR Code • comprovante de associação • exportação controlada.</p></div></section>
+<section class="section" id="associados"><div class="page-head"><div><span class="eyebrow">Cadastro e relacionamento</span><h1>Gestão de associados</h1><p>Cadastro, filiação, situação associativa, histórico e emissão de identificação digital.</p></div></div><div class="notice"><strong>Campos previstos para o cadastro</strong>Identificação, CPF, contatos, endereço, registro profissional, categoria de atuação, data de filiação, situação, documentos apresentados, consentimentos LGPD e histórico de alterações. Dados pessoais só serão tratados após autenticação e banco protegido.</div><div class="panel"><div class="panel-head"><h2>Base de associados</h2><button class="btn btn-primary" disabled>＋ Novo cadastro (em implantação)</button></div><div class="empty"><div class="empty-icon">♙</div><strong>Nenhum associado cadastrado</strong>Os registros serão carregados do banco institucional conforme suas permissões.</div></div><div class="panel" style="margin-top:16px"><h2>Recursos previstos</h2><p class="muted">Ficha cadastral completa • aprovação de filiação • situação ativa, suspensa ou desligada • histórico • carteirinha digital com QR Code • comprovante de associação • exportação controlada.</p></div></section>
 <section class="section" id="diretoria"><div class="page-head"><div><span class="eyebrow">Governança</span><h1>Diretoria e mandatos</h1><p>Composição dos órgãos de administração, atribuições, mandatos e atos de nomeação.</p></div></div><div class="panel"><div class="notice">A composição oficial deverá ser cadastrada conforme o estatuto, a ata de eleição/posse e os documentos vigentes. Nenhum nome ou cargo foi presumido.</div><div class="role-list">
 <div class="role"><div><strong>Presidência</strong><br><span>Representação legal e direção institucional</span></div><span>Cadastro pendente</span></div>
 <div class="role"><div><strong>Vice-presidência</strong><br><span>Substituição e apoio à presidência</span></div><span>Cadastro pendente</span></div>
@@ -95,7 +120,7 @@
 <div class="role"><div><strong>Conselho Fiscal</strong><br><span>Consulta de documentos e relatórios financeiros para fiscalização.</span></div><span>Perfil previsto</span></div>
 </div></section>
 <section class="section" id="configuracoes"><div class="page-head"><div><span class="eyebrow">Parâmetros institucionais</span><h1>Configurações</h1><p>Identidade, dados oficiais, regras de funcionamento e integrações.</p></div></div><div class="panel"><div class="field-grid"><div class="field"><label>Nome institucional</label><input value="Associação Nacional de Instrutores de Trânsito" disabled></div><div class="field"><label>Sigla</label><input value="ANIT" disabled></div><div class="field"><label>CNPJ</label><input placeholder="A cadastrar após confirmação documental" disabled></div><div class="field"><label>E-mail institucional</label><input placeholder="A configurar" disabled></div><div class="field full"><label>Observação</label><textarea disabled>Os dados oficiais da associação deverão ser preenchidos e conferidos com o estatuto e os registros institucionais vigentes.</textarea></div></div></div></section>
-<p class="footnote">ANIT • Central Administrativa — protótipo de navegação. Não inserir dados reais até a implantação da autenticação, autorização, banco de dados, política de privacidade e trilha de auditoria.</p>
+<p class="footnote">ANIT • Central Administrativa — ambiente de gestão restrito. As ações são registradas em trilha de auditoria.</p>
 </div></main></div>
 <script>
 const labels={dashboard:'Visão geral',associados:'Associados',diretoria:'Diretoria e mandatos',financeiro:'Financeiro',secretaria:'Secretaria e protocolos',documentos:'Documentos oficiais',juridico:'Jurídico e legislação',representacao:'Representação institucional',reunioes:'Reuniões e agenda',comunicacao:'Comunicação',demandas:'Demandas dos associados',relatorios:'Relatórios',usuarios:'Usuários e permissões',configuracoes:'Configurações'};
@@ -104,5 +129,6 @@ document.querySelectorAll('[data-section]').forEach(b=>b.addEventListener('click
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showSection(b.dataset.go)));
 document.getElementById('mobileMenu').addEventListener('click',()=>document.getElementById('sidebar').classList.toggle('open'));
 </script>
+<script type="module" src="./src/admin.js"></script>
 </body>
 </html>
