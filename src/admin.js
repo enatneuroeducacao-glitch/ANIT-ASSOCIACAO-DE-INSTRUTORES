@@ -68,7 +68,7 @@ function clearMessage() {
 function roleAllowed(section, role) {
   if (role === 'administrator' || role === 'president') return true;
   const access = {
-    vice_president: ['dashboard','associados','diretoria','secretaria','documentos','juridico','representacao','reunioes','comunicacao','demandas','relatorios'],
+    vice_president: ['dashboard','associados','diretoria','financeiro','secretaria','documentos','juridico','representacao','reunioes','comunicacao','demandas','relatorios'],
     treasurer: ['dashboard','associados','diretoria','financeiro','documentos','relatorios'],
     secretary: ['dashboard','associados','diretoria','secretaria','documentos','reunioes','comunicacao','demandas','relatorios'],
     director: ['dashboard','associados','diretoria','financeiro','secretaria','documentos','juridico','representacao','reunioes','demandas','relatorios']
@@ -256,6 +256,32 @@ async function loadProfile(user) {
   return data;
 }
 
+
+async function loadDashboardStats() {
+  const selectors = [...document.querySelectorAll('#dashboard .stat-value')];
+  const cards = [
+    { table: 'associates', filter: null, label: 'Associados cadastrados' },
+    { table: 'financial_entries', filter: ['status','paid'], label: 'Movimentações pagas' },
+    { table: 'member_demands', filter: ['status','open'], label: 'Demandas abertas' },
+    { table: 'official_documents', filter: null, label: 'Documentos emitidos' }
+  ];
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const node = selectors[i];
+    if (!node || !roleAllowed(card.table === 'associates' ? 'associados' : card.table === 'financial_entries' ? 'financeiro' : card.table === 'member_demands' ? 'demandas' : 'documentos', currentProfile.role)) continue;
+    let query = neon.from(card.table).select('id').limit(100);
+    if (card.filter) query = query.eq(card.filter[0], card.filter[1]);
+    const { data, error } = await query;
+    if (!error) {
+      node.textContent = data.length === 100 ? '100+' : String(data.length);
+      const detail = node.parentElement.querySelector('small');
+      if (detail) detail.textContent = 'Dados atuais do banco ANIT';
+    } else {
+      node.textContent = '—';
+    }
+  }
+}
+
 async function loadAudit() {
   const section = document.getElementById('usuarios');
   if (!section || !['administrator','president'].includes(currentProfile.role)) return;
@@ -380,7 +406,8 @@ async function boot() {
   authGate.hidden = true;
   shell.style.display = 'grid';
   applyRoleVisibility(currentProfile.role);
-  MODULES.forEach(addDataPanel);
+  MODULES.filter(module => roleAllowed(module.section, currentProfile.role)).forEach(addDataPanel);
+  await loadDashboardStats();
   await loadAudit();
   await loadUsersAndPermissions();
 }
@@ -413,7 +440,7 @@ document.getElementById('forgotPassword')?.addEventListener('click', async () =>
     showMessage('Informe seu e-mail no campo acima para receber as instruções de recuperação.');
     return;
   }
-  const basePath = window.location.pathname.replace(/admin\\.html$/, '');
+  const basePath = window.location.pathname.replace(/admin\.html$/, '');
   const redirectTo = window.location.origin + basePath + 'auth.html?path=reset-password';
   const { error } = await neon.auth.requestPasswordReset({ email, redirectTo });
   if (error) {
