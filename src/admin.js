@@ -98,8 +98,7 @@ const MODULES = [
     ['version','Versão','number',true],
     ['document_status','Situação documental','select',true,['vigente','em revisão','substituído','vencido','arquivado']],
     ['confidentiality','Classificação de acesso','select',true,['public','internal','restricted','confidential']],
-    ['description','Ementa / descrição','textarea'],
-    ['storage_path','Referência do arquivo / link seguro','url']
+    ['description','Ementa / descrição','textarea']
   ]},
   { section: 'juridico', table: 'legal_cases', title: 'Demandas jurídicas', columns: ['title','case_number','institution','status','deadline'], fields: [
     ['title','Título','text',true],['case_number','Número do processo','text'],['institution','Órgão/Instituição','text'],['deadline','Prazo','date'],['status','Situação','select',false,['open','monitoring','closed','suspended']],['summary','Resumo','textarea']
@@ -541,21 +540,21 @@ async function uploadOfficialDocumentAttachments(documentId, files, userId) {
       storage_key: documentId + '/' + crypto.randomUUID(),
       checksum_sha256: checksum,
       uploaded_by: userId,
-      file_data: '\\\\x' + hex
+      file_data: '\\x' + hex
     });
     if (error) throw new Error('Falha ao armazenar ' + safeName + ': ' + error.message);
   }
 }
 
-async function showOfficialDocumentAttachments(document) {
-  const panel = document.getElementById('data-official_documents');
+async function showOfficialDocumentAttachments(docRecord) {
+  const panel = window.document.getElementById('data-official_documents');
   const feedback = panel?.querySelector('.anit-feedback');
   if (!panel || !feedback) return;
   feedback.textContent = 'Consultando anexos...';
   feedback.dataset.kind = 'info';
   const { data, error } = await neon.from('official_document_attachments')
     .select('id,file_name,content_type,file_size,created_at,uploaded_by')
-    .eq('document_id', document.id).order('created_at',{ascending:false});
+    .eq('document_id', docRecord.id).order('created_at',{ascending:false});
   if (error) {
     feedback.textContent = 'Não foi possível consultar anexos: ' + error.message;
     feedback.dataset.kind = 'error';
@@ -564,10 +563,39 @@ async function showOfficialDocumentAttachments(document) {
   const area = panel.querySelector('.anit-attachments');
   area.replaceChildren();
   const heading = document.createElement('h3');
-  heading.textContent = 'Anexos — ' + document.title;
+  heading.textContent = 'Anexos — ' + docRecord.title;
   area.appendChild(heading);
+  if (canManage('official_documents', currentProfile.role)) {
+    const uploadLabel = window.document.createElement('label');
+    uploadLabel.className = 'btn btn-primary btn-small';
+    uploadLabel.textContent = 'Adicionar anexos';
+    const uploadInput = window.document.createElement('input');
+    uploadInput.type = 'file';
+    uploadInput.multiple = true;
+    uploadInput.accept = '.pdf,.docx,.xlsx,.jpg,.jpeg,.png';
+    uploadInput.hidden = true;
+    uploadInput.addEventListener('change', async () => {
+      const files = [...uploadInput.files].filter(file => file.size > 0);
+      if (!files.length) return;
+      uploadLabel.textContent = 'Enviando...';
+      uploadLabel.style.pointerEvents = 'none';
+      try {
+        await uploadOfficialDocumentAttachments(docRecord.id, files, currentUser.id);
+        await showOfficialDocumentAttachments(docRecord);
+      } catch (error) {
+        feedback.textContent = 'Falha no envio: ' + error.message;
+        feedback.dataset.kind = 'error';
+      } finally {
+        uploadLabel.textContent = 'Adicionar anexos';
+        uploadLabel.style.pointerEvents = '';
+        uploadInput.value = '';
+      }
+    });
+    uploadLabel.appendChild(uploadInput);
+    area.appendChild(uploadLabel);
+  }
   if (!data?.length) {
-    const empty = document.createElement('p');
+    const empty = window.document.createElement('p');
     empty.textContent = 'Este documento ainda não possui anexos.';
     area.appendChild(empty);
   }
@@ -585,7 +613,7 @@ async function showOfficialDocumentAttachments(document) {
           .select('file_name,content_type,file_data').eq('id',item.id).single();
         if (fileError) throw fileError;
         const raw = fileRow.file_data;
-        if (typeof raw !== 'string' || !raw.startsWith('\\\\x')) throw new Error('Formato binário retornado pelo banco não reconhecido.');
+        if (typeof raw !== 'string' || !raw.startsWith('\\x')) throw new Error('Formato binário retornado pelo banco não reconhecido.');
         const hex = raw.slice(2);
         const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(pair => parseInt(pair,16)));
         const url = URL.createObjectURL(new Blob([bytes],{type:fileRow.content_type || 'application/octet-stream'}));
@@ -600,6 +628,21 @@ async function showOfficialDocumentAttachments(document) {
       } finally { download.disabled = false; }
     });
     line.append(label,download);
+    if (canManage('official_documents', currentProfile.role)) {
+      const remove = window.document.createElement('button');
+      remove.type = 'button'; remove.className = 'btn btn-danger btn-small'; remove.textContent = 'Excluir';
+      remove.addEventListener('click', async () => {
+        if (!window.confirm('Excluir permanentemente este anexo?')) return;
+        const { error: removeError } = await neon.from('official_document_attachments').delete().eq('id',item.id);
+        if (removeError) {
+          feedback.textContent = 'Não foi possível excluir: ' + removeError.message;
+          feedback.dataset.kind = 'error';
+          return;
+        }
+        await showOfficialDocumentAttachments(docRecord);
+      });
+      line.appendChild(remove);
+    }
     area.appendChild(line);
   }
   feedback.textContent = (data?.length || 0) + ' anexo(s) localizado(s).';
