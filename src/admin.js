@@ -306,6 +306,19 @@ async function addDataPanel(module) {
         if (sessionResult?.error || !sessionResult?.data?.session || !activeSessionUser?.id || activeSessionUser.id !== currentUser.id) {
           throw new Error('Sua sessão não está sincronizada com o banco. Saia da Central ANIT, entre novamente e tente salvar.');
         }
+        if (module.table === 'board_members') {
+          const { data: accessCheck, error: accessError } = await neon.rpc('current_board_access_check');
+          const access = Array.isArray(accessCheck) ? accessCheck[0] : accessCheck;
+          if (accessError) {
+            throw new Error('Não foi possível verificar sua autorização no banco. Detalhe: ' + accessError.message);
+          }
+          if (!access?.authenticated_user_id) {
+            throw new Error('O banco recebeu a operação sem identificar seu usuário autenticado (JWT). Saia da Central, entre novamente e tente. Se persistir, precisamos corrigir a integração de autenticação com a API de dados.');
+          }
+          if (!access.has_board_management_role) {
+            throw new Error('O banco identificou seu usuário, mas não reconheceu o perfil Administrador ou Presidente. Solicite a revisão do vínculo entre sua conta e o perfil institucional.');
+          }
+        }
         if (editingId) {
           const { error } = await neon.from(module.table).update(payload).eq('id', editingId);
           if (error) throw error;
