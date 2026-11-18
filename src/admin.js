@@ -412,7 +412,8 @@ document.getElementById('forgotPassword')?.addEventListener('click', async () =>
     showMessage('Informe seu e-mail no campo acima para receber as instruções de recuperação.');
     return;
   }
-  const redirectTo = window.location.origin + '/auth.html?path=reset-password';
+  const basePath = window.location.pathname.replace(/admin\\.html$/, '');
+  const redirectTo = window.location.origin + basePath + 'auth.html?path=reset-password';
   const { error } = await neon.auth.requestPasswordReset({ email, redirectTo });
   if (error) {
     showMessage('Não foi possível enviar a recuperação. Verifique a configuração do serviço de e-mail ou contate o administrador.');
