@@ -30,7 +30,10 @@ const ENUM_LABELS = {
   closed: 'Concluído', paused: 'Pausado', scheduled: 'Agendado',
   held: 'Realizado', draft: 'Rascunho', published: 'Publicado',
   low: 'Baixa', normal: 'Normal', high: 'Alta', urgent: 'Urgente',
-  waiting: 'Aguardando', resolved: 'Resolvido'
+  waiting: 'Aguardando', resolved: 'Resolvido',
+  repealed: 'Revogada integralmente',
+  federal: 'Federal', estadual: 'Estadual', municipal: 'Municipal',
+  institucional: 'Institucional'
 };
 
 const COLUMN_LABELS = {
@@ -51,7 +54,11 @@ const COLUMN_LABELS = {
   meeting_type: 'Tipo de reunião', starts_at: 'Início', ends_at: 'Término',
   location: 'Local', channel: 'Canal', audience: 'Público',
   scheduled_at: 'Agendamento', priority: 'Prioridade',
-  responsible_user_id: 'Responsável'
+  responsible_user_id: 'Responsável',
+  norm_type: 'Tipo de norma', issuing_body: 'Órgão emissor',
+  reference_number: 'Número / identificação', jurisdiction: 'Abrangência',
+  published_on: 'Publicação', effective_on: 'Início da vigência',
+  source_url: 'Fonte oficial', summary: 'Ementa / observações'
 };
 
 function translateEnum(value) {
@@ -81,6 +88,9 @@ const MODULES = [
   ]},
   { section: 'juridico', table: 'legal_cases', title: 'Demandas jurídicas', columns: ['title','case_number','institution','status','deadline'], fields: [
     ['title','Título','text',true],['case_number','Número do processo','text'],['institution','Órgão/Instituição','text'],['deadline','Prazo','date'],['status','Situação','select',false,['open','monitoring','closed','suspended']],['summary','Resumo','textarea']
+  ]},
+  { section: 'juridico', table: 'legal_references', title: 'Legislação e normas', columns: ['title','norm_type','issuing_body','reference_number','jurisdiction','published_on','effective_on','status'], fields: [
+    ['title','Título da norma','text',true],['norm_type','Tipo de norma','select',true,['Lei','Decreto','Resolução','Portaria','Deliberação','Instrução normativa','Medida provisória','Outro']],['issuing_body','Órgão emissor','text'],['reference_number','Número / identificação','text'],['jurisdiction','Abrangência','select',true,['federal','estadual','municipal','institucional']],['published_on','Data de publicação','date'],['effective_on','Início da vigência','date'],['status','Situação','select',true,['draft','active','revoked','repealed']],['source_url','Link da fonte oficial','url'],['summary','Ementa / observações','textarea']
   ]},
   { section: 'representacao', table: 'institutional_relations', title: 'Relações institucionais', columns: ['institution','contact_name','subject','next_action_at','status'], fields: [
     ['institution','Instituição','text',true],['contact_name','Contato','text'],['subject','Assunto','text'],['next_action_at','Próxima ação','date'],['status','Situação','select',false,['active','paused','closed']],['notes','Observações','textarea']
