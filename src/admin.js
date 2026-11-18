@@ -543,7 +543,7 @@ async function uploadOfficialDocumentAttachments(documentId, files, userId) {
       binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
     }
     const base64 = btoa(binary);
-    const safeName = file.name.replaceAll('/','_').replaceAll('\\\\','_').replace(/[\\u0000-\\u001f]/g,'_').slice(0,240);
+    const safeName = Array.from(file.name).map(char => char === '/' || char === String.fromCharCode(92) || char.charCodeAt(0) < 32 ? '_' : char).join('').slice(0,240);
     const { error } = await neon.rpc('store_official_document_attachment', {
       p_document_id: documentId,
       p_file_name: safeName,
