@@ -73,7 +73,7 @@ const MODULES = [
   { section: 'financeiro', table: 'financial_entries', title: 'Movimentações financeiras', columns: ['entry_type','description','amount','competence_date','category','status'], fields: [
     ['entry_type','Tipo','select',true,['income','expense']],['description','Descrição','text',true],['amount','Valor (R$)','number',true],['competence_date','Competência','date',true],['due_date','Vencimento','date'],['category','Categoria','text'],['payment_method','Forma de pagamento','text'],['status','Situação','select',false,['pending','paid','cancelled','overdue']]
   ]},
-  { section: 'secretaria', table: 'protocols', title: 'Protocolos', columns: ['protocol_number','direction','subject','sender','recipient','received_at','status'], fields: [
+  { section: 'secretaria', table: 'protocols', title: 'Protocolos', columns: ['protocol_number','direction','subject','sender','recipient','received_at','due_date','status'], fields: [
     ['received_at','Data de recebimento','datetime-local',true],['protocol_number','Número do protocolo','text',true],['direction','Fluxo','select',true,['incoming','outgoing','internal']],['subject','Assunto','text',true],['sender','Remetente','text'],['recipient','Destinatário','text'],['due_date','Prazo','date'],['status','Situação','select',false,['open','in_progress','answered','archived']],['notes','Observações','textarea']
   ]},
   { section: 'documentos', table: 'official_documents', title: 'Documentos oficiais', columns: ['title','document_type','document_number','version','issued_at','expires_at','confidentiality'], fields: [
@@ -231,7 +231,7 @@ async function addDataPanel(module) {
     createForm.dataset.mode = 'create';
     submit.textContent = 'Salvar registro';
     cancel.hidden = true;
-    if (module.table === 'associates') createForm.hidden = true;
+    if (['associates','protocols'].includes(module.table)) createForm.hidden = true;
     panel.querySelector('.anit-feedback').textContent = '';
   });
   module.fields.forEach(([name,label,type,required,options]) => {
@@ -258,6 +258,10 @@ async function addDataPanel(module) {
     }
     input.id = module.table + '-' + name;
     input.name = name;
+    if (module.table === 'protocols' && name === 'protocol_number') {
+      input.readOnly = true;
+      input.placeholder = 'Gerado automaticamente ao iniciar novo protocolo';
+    }
     if (required) input.required = true;
     field.appendChild(input);
     createForm.appendChild(field);
@@ -340,7 +344,11 @@ async function addDataPanel(module) {
         createForm.dataset.mode = 'create';
         submit.textContent = 'Salvar registro';
         cancel.hidden = true;
-        if (module.table === 'associates') createForm.hidden = true;
+        if (['associates','protocols'].includes(module.table)) createForm.hidden = true;
+        if (module.table === 'protocols') {
+          const newButton = document.getElementById('newProtocolButton');
+          if (newButton) newButton.textContent = 'Novo protocolo';
+        }
         await loadTable(module);
       } catch (error) {
         feedback.textContent = 'Não foi possível salvar: ' + (error.message || 'erro desconhecido');
@@ -349,8 +357,44 @@ async function addDataPanel(module) {
         submit.disabled = false;
       }
     });
-    if (module.table === 'associates') createForm.hidden = true;
+    if (['associates','protocols'].includes(module.table)) createForm.hidden = true;
     formWrap.appendChild(createForm);
+    if (module.table === 'protocols') {
+      const newButton = document.getElementById('newProtocolButton');
+      if (newButton) newButton.addEventListener('click', async () => {
+        editingId = null;
+        createForm.reset();
+        createForm.hidden = false;
+        createForm.dataset.mode = 'create';
+        submit.textContent = 'Registrar protocolo';
+        cancel.hidden = false;
+        const received = createForm.elements.namedItem('received_at');
+        if (received) {
+          const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
+          received.value = now.toISOString().slice(0,16);
+        }
+        const feedback = panel.querySelector('.anit-feedback');
+        feedback.textContent = 'Gerando número do protocolo...';
+        feedback.dataset.kind = 'info';
+        newButton.disabled = true;
+        try {
+          const { data, error } = await neon.rpc('next_protocol_number');
+          if (error) throw error;
+          const number = Array.isArray(data) ? data[0] : data;
+          const generated = typeof number === 'string' ? number : number?.next_protocol_number;
+          if (!generated) throw new Error('O banco não retornou o número do protocolo.');
+          createForm.elements.namedItem('protocol_number').value = generated;
+          feedback.textContent = 'Número gerado. Preencha os dados e registre o protocolo.';
+          feedback.dataset.kind = 'success';
+        } catch (error) {
+          feedback.textContent = 'Não foi possível gerar o número: ' + (error.message || 'erro desconhecido');
+          feedback.dataset.kind = 'error';
+        } finally {
+          newButton.disabled = false;
+        }
+        createForm.scrollIntoView({behavior:'smooth',block:'center'});
+      });
+    }
   } else {
     const note = document.createElement('p');
     note.className = 'muted';
@@ -365,6 +409,10 @@ async function addDataPanel(module) {
     if (!allowedToManage) return;
     editingId = row.id;
     createForm.hidden = false;
+    if (module.table === 'protocols') {
+      const newButton = document.getElementById('newProtocolButton');
+      if (newButton) newButton.textContent = 'Novo protocolo';
+    }
     module.fields.forEach(([name]) => {
       const input = createForm.elements.namedItem(name);
       if (!input) return;
