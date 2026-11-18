@@ -106,79 +106,129 @@ function applyRoleVisibility(role) {
 
 function addDataPanel(module) {
   const section = document.getElementById(module.section);
-  if (!section) return;
+  if (!section || document.getElementById('data-' + module.table)) return;
+  section.querySelectorAll('.empty,.module-grid,.notice').forEach(node => node.remove());
   const panel = document.createElement('div');
   panel.className = 'panel anit-data-panel';
   panel.id = 'data-' + module.table;
-  panel.innerHTML = '<div class="panel-head"><h2></h2><span class="muted">Dados protegidos pela ANIT</span></div><div class="anit-form-wrap"></div><div class="anit-table-wrap"></div><p class="anit-feedback" role="status"></p>';
+  panel.innerHTML = '<div class="panel-head"><h2></h2><div class="anit-toolbar"><input class="anit-search" type="search" placeholder="Buscar registros"><button class="btn btn-light anit-refresh" type="button">Atualizar</button></div></div><div class="anit-form-wrap"></div><div class="anit-table-wrap"></div><p class="anit-feedback" role="status"></p>';
   panel.querySelector('h2').textContent = module.title;
   section.appendChild(panel);
   const formWrap = panel.querySelector('.anit-form-wrap');
   const createForm = document.createElement('form');
   createForm.className = 'field-grid anit-create-form';
-  const allowedToCreate = canManage(module.table, currentProfile.role);
-  if (allowedToCreate) {
-    module.fields.forEach(([name,label,type,required,options]) => {
-      const field = document.createElement('div');
-      field.className = 'field';
-      const lab = document.createElement('label');
-      lab.textContent = label;
-      lab.htmlFor = module.table + '-' + name;
-      field.appendChild(lab);
-      let input;
-      if (type === 'select') {
-        input = document.createElement('select');
-        (options || []).forEach(value => {
-          const option = document.createElement('option');
-          option.value = value;
-          option.textContent = value;
-          input.appendChild(option);
-        });
-      } else if (type === 'textarea') {
-        input = document.createElement('textarea');
-      } else {
-        input = document.createElement('input');
-        input.type = type || 'text';
-      }
-      input.id = module.table + '-' + name;
-      input.name = name;
-      if (required) input.required = true;
-      field.appendChild(input);
-      createForm.appendChild(field);
-    });
-    const submit = document.createElement('button');
-    submit.type = 'submit';
-    submit.className = 'btn btn-primary';
+  createForm.dataset.mode = 'create';
+  const allowedToManage = canManage(module.table, currentProfile.role);
+  let editingId = null;
+  const submit = document.createElement('button');
+  submit.type = 'submit';
+  submit.className = 'btn btn-primary';
+  submit.textContent = 'Salvar registro';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'btn btn-light';
+  cancel.textContent = 'Cancelar edição';
+  cancel.hidden = true;
+  cancel.addEventListener('click', () => {
+    editingId = null;
+    createForm.reset();
+    createForm.dataset.mode = 'create';
     submit.textContent = 'Salvar registro';
-    createForm.appendChild(submit);
+    cancel.hidden = true;
+    panel.querySelector('.anit-feedback').textContent = '';
+  });
+  module.fields.forEach(([name,label,type,required,options]) => {
+    const field = document.createElement('div');
+    field.className = 'field';
+    const lab = document.createElement('label');
+    lab.textContent = label;
+    lab.htmlFor = module.table + '-' + name;
+    field.appendChild(lab);
+    let input;
+    if (type === 'select') {
+      input = document.createElement('select');
+      (options || []).forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value.replaceAll('_',' ');
+        input.appendChild(option);
+      });
+    } else if (type === 'textarea') {
+      input = document.createElement('textarea');
+    } else {
+      input = document.createElement('input');
+      input.type = type || 'text';
+    }
+    input.id = module.table + '-' + name;
+    input.name = name;
+    if (required) input.required = true;
+    field.appendChild(input);
+    createForm.appendChild(field);
+  });
+  if (allowedToManage) {
+    createForm.append(submit, cancel);
     createForm.addEventListener('submit', async event => {
       event.preventDefault();
       const feedback = panel.querySelector('.anit-feedback');
       const payload = Object.fromEntries(new FormData(createForm).entries());
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') delete payload[key];
-        if (['amount'].includes(key) && payload[key] !== undefined) payload[key] = Number(payload[key]);
+        if (['amount','version'].includes(key) && payload[key] !== undefined) payload[key] = Number(payload[key]);
+        if (['starts_at','ends_at','scheduled_at','received_at','next_action_at','last_contact_at'].includes(key) && payload[key]) payload[key] = new Date(payload[key]).toISOString();
       });
-      payload.created_by = currentUser.id;
-      const { error } = await neon.from(module.table).insert(payload);
-      if (error) {
-        feedback.textContent = 'Não foi possível salvar: ' + error.message;
+      try {
+        submit.disabled = true;
+        if (editingId) {
+          const { error } = await neon.from(module.table).update(payload).eq('id', editingId);
+          if (error) throw error;
+          feedback.textContent = 'Registro atualizado com sucesso.';
+        } else {
+          payload.created_by = currentUser.id;
+          const { error } = await neon.from(module.table).insert(payload);
+          if (error) throw error;
+          feedback.textContent = 'Registro cadastrado com sucesso.';
+        }
+        feedback.dataset.kind = 'success';
+        editingId = null;
+        createForm.reset();
+        createForm.dataset.mode = 'create';
+        submit.textContent = 'Salvar registro';
+        cancel.hidden = true;
+        await loadTable(module);
+      } catch (error) {
+        feedback.textContent = 'Não foi possível salvar: ' + (error.message || 'erro desconhecido');
         feedback.dataset.kind = 'error';
-        return;
+      } finally {
+        submit.disabled = false;
       }
-      feedback.textContent = 'Registro salvo. A operação foi encaminhada à trilha de auditoria.';
-      feedback.dataset.kind = 'success';
-      createForm.reset();
-      await loadTable(module);
     });
     formWrap.appendChild(createForm);
   } else {
     const note = document.createElement('p');
     note.className = 'muted';
-    note.textContent = 'Seu perfil tem acesso de consulta a esta área. Alterações são reservadas às funções autorizadas.';
+    note.textContent = 'Seu perfil tem acesso de consulta nesta área. Edição e exclusão dependem das permissões institucionais.';
     formWrap.appendChild(note);
   }
+  panel.querySelector('.anit-refresh').addEventListener('click', () => loadTable(module));
+  panel.querySelector('.anit-search').addEventListener('input', () => loadTable(module));
   loadTable(module);
+
+  panel._editRecord = row => {
+    if (!allowedToManage) return;
+    editingId = row.id;
+    module.fields.forEach(([name]) => {
+      const input = createForm.elements.namedItem(name);
+      if (!input) return;
+      let value = row[name] ?? '';
+      if (input.type === 'datetime-local' && value) value = new Date(value).toISOString().slice(0,16);
+      else if (input.type === 'date' && value) value = String(value).slice(0,10);
+      input.value = value;
+    });
+    createForm.dataset.mode = 'edit';
+    submit.textContent = 'Salvar alterações';
+    cancel.hidden = false;
+    createForm.scrollIntoView({behavior:'smooth',block:'center'});
+  };
 }
 
 function canManage(table, role) {
@@ -203,16 +253,15 @@ async function loadTable(module) {
   if (!panel) return;
   const wrap = panel.querySelector('.anit-table-wrap');
   wrap.textContent = 'Carregando registros...';
-  const { data, error } = await neon.from(module.table)
-    .select(module.columns.join(','))
-    .order('created_at', { ascending: false })
-    .limit(50);
+  const { data, error } = await neon.from(module.table).select('*').order('created_at', { ascending: false }).limit(250);
   if (error) {
-    wrap.textContent = 'Consulta indisponível para este perfil ou módulo: ' + error.message;
+    wrap.textContent = 'Consulta indisponível: ' + error.message;
     return;
   }
-  if (!data?.length) {
-    wrap.textContent = 'Nenhum registro cadastrado.';
+  const term = (panel.querySelector('.anit-search')?.value || '').trim().toLocaleLowerCase('pt-BR');
+  const rows = (data || []).filter(row => !term || Object.values(row).some(value => String(value ?? '').toLocaleLowerCase('pt-BR').includes(term)));
+  if (!rows.length) {
+    wrap.textContent = data?.length ? 'Nenhum registro corresponde à busca.' : 'Nenhum registro cadastrado.';
     return;
   }
   const table = document.createElement('table');
@@ -223,22 +272,39 @@ async function loadTable(module) {
     th.textContent = column.replaceAll('_',' ');
     headerRow.appendChild(th);
   });
-  head.appendChild(headerRow);
-  table.appendChild(head);
+  if (canManage(module.table,currentProfile.role)) {
+    const th=document.createElement('th'); th.textContent='Ações'; headerRow.appendChild(th);
+  }
+  head.appendChild(headerRow); table.appendChild(head);
   const body = document.createElement('tbody');
-  data.forEach(row => {
+  rows.forEach(row => {
     const tr = document.createElement('tr');
     module.columns.forEach(column => {
       const td = document.createElement('td');
-      td.textContent = row[column] == null ? '—' : String(row[column]);
+      const value = row[column];
+      td.textContent = value == null ? '—' : (typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? new Date(value).toLocaleString('pt-BR') : String(value));
       tr.appendChild(td);
     });
+    if (canManage(module.table,currentProfile.role)) {
+      const actions=document.createElement('td');
+      const edit=document.createElement('button');
+      edit.type='button'; edit.className='btn btn-light btn-small'; edit.textContent='Editar';
+      edit.addEventListener('click',()=>panel._editRecord(row));
+      const del=document.createElement('button');
+      del.type='button'; del.className='btn btn-danger btn-small'; del.textContent='Excluir';
+      del.addEventListener('click',async()=>{
+        if (!window.confirm('Confirma a exclusão deste registro? Esta ação ficará registrada na auditoria.')) return;
+        const {error:deleteError}=await neon.from(module.table).delete().eq('id',row.id);
+        const feedback=panel.querySelector('.anit-feedback');
+        if(deleteError){feedback.textContent='Não foi possível excluir: '+deleteError.message;feedback.dataset.kind='error';return;}
+        feedback.textContent='Registro excluído.';feedback.dataset.kind='success';await loadTable(module);
+      });
+      actions.append(edit,del); tr.appendChild(actions);
+    }
     body.appendChild(tr);
   });
   table.appendChild(body);
-  const frame = document.createElement('div');
-  frame.className = 'table-wrap';
-  frame.appendChild(table);
+  const frame=document.createElement('div'); frame.className='table-wrap'; frame.appendChild(table);
   wrap.replaceChildren(frame);
 }
 
