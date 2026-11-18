@@ -32,6 +32,8 @@ const ENUM_LABELS = {
   low: 'Baixa', normal: 'Normal', high: 'Alta', urgent: 'Urgente',
   waiting: 'Aguardando', resolved: 'Resolvido',
   repealed: 'Revogada integralmente',
+  vigente: 'Vigente', 'em revisão': 'Em revisão', substituído: 'Substituído',
+  vencido: 'Vencido', arquivado: 'Arquivado',
   federal: 'Federal', estadual: 'Estadual', municipal: 'Municipal',
   institucional: 'Institucional'
 };
@@ -48,7 +50,9 @@ const COLUMN_LABELS = {
   title: 'Título', document_type: 'Tipo documental',
   document_number: 'Número do documento', version: 'Versão',
   issued_at: 'Data de emissão', expires_at: 'Validade',
-  confidentiality: 'Classificação', case_number: 'Número do processo',
+  confidentiality: 'Classificação', category: 'Categoria documental',
+  issuing_body: 'Órgão emissor / responsável', document_status: 'Situação documental',
+  storage_path: 'Arquivo / link seguro', case_number: 'Número do processo',
   institution: 'Órgão/Instituição', deadline: 'Prazo',
   contact_name: 'Nome do contato', next_action_at: 'Próxima ação',
   meeting_type: 'Tipo de reunião', starts_at: 'Início', ends_at: 'Término',
@@ -83,8 +87,19 @@ const MODULES = [
   { section: 'secretaria', table: 'protocols', title: 'Protocolos', columns: ['protocol_number','direction','subject','sender','recipient','received_at','due_date','status'], fields: [
     ['received_at','Data de recebimento','datetime-local',true],['protocol_number','Número do protocolo','text',true],['direction','Fluxo','select',true,['incoming','outgoing','internal']],['subject','Assunto','text',true],['sender','Remetente','text'],['recipient','Destinatário','text'],['due_date','Prazo','date'],['status','Situação','select',false,['open','in_progress','answered','archived']],['notes','Observações','textarea']
   ]},
-  { section: 'documentos', table: 'official_documents', title: 'Documentos oficiais', columns: ['title','document_type','document_number','version','issued_at','expires_at','confidentiality'], fields: [
-    ['title','Título','text',true],['document_type','Tipo documental','text',true],['document_number','Número','text'],['issued_at','Data de emissão','date'],['expires_at','Validade','date'],['confidentiality','Classificação','select',false,['public','internal','restricted','confidential']],['storage_path','Referência do arquivo','text']
+  { section: 'documentos', table: 'official_documents', title: 'Arquivo digital institucional', columns: ['title','category','document_type','document_number','issuing_body','version','issued_at','expires_at','document_status','confidentiality'], fields: [
+    ['title','Título do documento','text',true],
+    ['category','Categoria documental','select',true,['Estatuto e regimentos','Atas e deliberações','Ofícios expedidos','Ofícios recebidos','Resoluções','Portarias','Notas técnicas','Pareceres','Contratos e convênios','Procurações','Certidões e registros','Editais e convocações','Relatórios institucionais','Comunicados e circulares','Documentos financeiros','Documentos cadastrais','Outros']],
+    ['document_type','Tipo / espécie documental','text',true],
+    ['document_number','Número / identificação','text'],
+    ['issuing_body','Órgão emissor / responsável','text'],
+    ['issued_at','Data de emissão','date'],
+    ['expires_at','Validade / vencimento','date'],
+    ['version','Versão','number',true],
+    ['document_status','Situação documental','select',true,['vigente','em revisão','substituído','vencido','arquivado']],
+    ['confidentiality','Classificação de acesso','select',true,['public','internal','restricted','confidential']],
+    ['description','Ementa / descrição','textarea'],
+    ['storage_path','Referência do arquivo / link seguro','url']
   ]},
   { section: 'juridico', table: 'legal_cases', title: 'Demandas jurídicas', columns: ['title','case_number','institution','status','deadline'], fields: [
     ['title','Título','text',true],['case_number','Número do processo','text'],['institution','Órgão/Instituição','text'],['deadline','Prazo','date'],['status','Situação','select',false,['open','monitoring','closed','suspended']],['summary','Resumo','textarea']
