@@ -17,6 +17,52 @@ const ROLE_LABELS = {
   administrator: 'Administrador'
 };
 
+const ENUM_LABELS = {
+  pending: 'Pendente', active: 'Ativo', suspended: 'Suspenso',
+  resigned: 'Desligado a pedido', excluded: 'Excluído',
+  ended: 'Encerrado', revoked: 'Revogado',
+  income: 'Receita', expense: 'Despesa', paid: 'Pago',
+  cancelled: 'Cancelado', overdue: 'Em atraso',
+  incoming: 'Recebido', outgoing: 'Enviado', internal: 'Interno',
+  open: 'Aberto', in_progress: 'Em andamento', answered: 'Respondido',
+  archived: 'Arquivado', public: 'Público', restricted: 'Restrito',
+  confidential: 'Confidencial', monitoring: 'Em acompanhamento',
+  closed: 'Concluído', paused: 'Pausado', scheduled: 'Agendado',
+  held: 'Realizado', draft: 'Rascunho', published: 'Publicado',
+  low: 'Baixa', normal: 'Normal', high: 'Alta', urgent: 'Urgente',
+  waiting: 'Aguardando', resolved: 'Resolvido'
+};
+
+const COLUMN_LABELS = {
+  membership_number: 'Matrícula', full_name: 'Nome completo', email: 'E-mail',
+  phone: 'Telefone', city: 'Cidade', state: 'UF', category: 'Categoria',
+  status: 'Situação', office: 'Cargo', term_start: 'Início do mandato',
+  term_end: 'Fim do mandato', entry_type: 'Tipo', description: 'Descrição',
+  amount: 'Valor', competence_date: 'Competência', due_date: 'Vencimento',
+  payment_method: 'Forma de pagamento', protocol_number: 'Número do protocolo',
+  direction: 'Fluxo', subject: 'Assunto', sender: 'Remetente',
+  recipient: 'Destinatário', received_at: 'Data de recebimento',
+  title: 'Título', document_type: 'Tipo documental',
+  document_number: 'Número do documento', version: 'Versão',
+  issued_at: 'Data de emissão', expires_at: 'Validade',
+  confidentiality: 'Classificação', case_number: 'Número do processo',
+  institution: 'Órgão/Instituição', deadline: 'Prazo',
+  contact_name: 'Nome do contato', next_action_at: 'Próxima ação',
+  meeting_type: 'Tipo de reunião', starts_at: 'Início', ends_at: 'Término',
+  location: 'Local', channel: 'Canal', audience: 'Público',
+  scheduled_at: 'Agendamento', priority: 'Prioridade',
+  responsible_user_id: 'Responsável'
+};
+
+function translateEnum(value) {
+  if (value == null) return '—';
+  return ENUM_LABELS[String(value)] || String(value).replaceAll('_', ' ');
+}
+
+function formatColumnLabel(column) {
+  return COLUMN_LABELS[column] || column.replaceAll('_', ' ');
+}
+
 const MODULES = [
   { section: 'associados', table: 'associates', title: 'Associados', columns: ['membership_number','full_name','email','phone','city','state','category','status'], fields: [
     ['full_name','Nome completo','text',true],['email','E-mail','email'],['phone','Telefone','tel'],['city','Cidade','text'],['state','UF','text'],['professional_registration','Registro profissional','text'],['category','Categoria','text'],['joined_at','Data de filiação','date'],['status','Situação','select',['pending','active','suspended','resigned','excluded']]
@@ -151,7 +197,7 @@ function addDataPanel(module) {
       (options || []).forEach(value => {
         const option = document.createElement('option');
         option.value = value;
-        option.textContent = value.replaceAll('_',' ');
+        option.textContent = translateEnum(value);
         input.appendChild(option);
       });
     } else if (type === 'textarea') {
@@ -278,7 +324,7 @@ async function loadTable(module) {
   const headerRow = document.createElement('tr');
   module.columns.forEach(column => {
     const th = document.createElement('th');
-    th.textContent = column.replaceAll('_',' ');
+    th.textContent = formatColumnLabel(column);
     headerRow.appendChild(th);
   });
   if (canManage(module.table,currentProfile.role)) {
@@ -291,7 +337,7 @@ async function loadTable(module) {
     module.columns.forEach(column => {
       const td = document.createElement('td');
       const value = row[column];
-      td.textContent = value == null ? '—' : (typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? new Date(value).toLocaleString('pt-BR') : String(value));
+      td.textContent = value == null ? '—' : (typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? new Date(value).toLocaleString('pt-BR') : translateEnum(value));
       tr.appendChild(td);
     });
     if (canManage(module.table,currentProfile.role)) {
