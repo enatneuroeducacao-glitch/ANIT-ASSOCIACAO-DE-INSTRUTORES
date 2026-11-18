@@ -301,14 +301,24 @@ async function addDataPanel(module) {
       });
       try {
         submit.disabled = true;
+        const sessionResult = await neon.auth.getSession();
+        const activeSessionUser = sessionResult?.data?.user;
+        if (sessionResult?.error || !sessionResult?.data?.session || !activeSessionUser?.id || activeSessionUser.id !== currentUser.id) {
+          throw new Error('Sua sessão não está sincronizada com o banco. Saia da Central ANIT, entre novamente e tente salvar.');
+        }
         if (editingId) {
           const { error } = await neon.from(module.table).update(payload).eq('id', editingId);
           if (error) throw error;
           feedback.textContent = 'Registro atualizado com sucesso.';
         } else {
-          payload.created_by = currentUser.id;
+          payload.created_by = activeSessionUser.id;
           const { error } = await neon.from(module.table).insert(payload);
-          if (error) throw error;
+          if (error) {
+            if (module.table === 'board_members' && /row-level security|policy/i.test(error.message || '')) {
+              throw new Error('O banco não reconheceu sua autorização para gerenciar a diretoria. Confirme que seu perfil está ativo como Administrador ou Presidente e entre novamente na Central.');
+            }
+            throw error;
+          }
           feedback.textContent = 'Registro cadastrado com sucesso.';
         }
         feedback.dataset.kind = 'success';
