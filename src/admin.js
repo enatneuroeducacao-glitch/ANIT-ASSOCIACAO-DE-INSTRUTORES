@@ -616,21 +616,63 @@ async function boot() {
 form?.addEventListener('submit', async event => {
   event.preventDefault();
   clearMessage();
-  if (!neon) {
-    if (!AUTH_URL || !DATA_API_URL) {
-      showMessage('O ambiente ainda não está configurado para autenticação.');
-      return;
-    }
-    neon = createClient({ auth: { url: AUTH_URL }, dataApi: { url: DATA_API_URL, options: { db: { schema: 'anit' } } } });
-  }
+  const submit = form.querySelector('button[type="submit"]');
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
-  const { error } = await neon.auth.signIn.email({ email, password, rememberMe: true });
-  if (error) {
-    showMessage('Não foi possível autenticar. Confira o e-mail e a senha ou solicite a recuperação.');
+
+  if (!email || !password) {
+    showMessage('Informe seu e-mail e sua senha para continuar.');
     return;
   }
-  await boot();
+  if (!AUTH_URL || !DATA_API_URL) {
+    showMessage('A autenticação da Central ANIT não está configurada. Avise o administrador.');
+    return;
+  }
+
+  if (submit) {
+    submit.disabled = true;
+    submit.textContent = 'Verificando acesso...';
+  }
+
+  try {
+    if (!neon) {
+      neon = createClient({
+        auth: { url: AUTH_URL },
+        dataApi: { url: DATA_API_URL, options: { db: { schema: 'anit' } } }
+      });
+    }
+
+    const result = await neon.auth.signIn.email({ email, password, rememberMe: true });
+    if (result?.error) {
+      showMessage('Não foi possível autenticar. Verifique e-mail, senha e confirmação do e-mail cadastrado.');
+      return;
+    }
+
+    const sessionResult = await neon.auth.getSession();
+    if (sessionResult?.error) {
+      showMessage('A senha foi aceita, mas não foi possível confirmar a sessão. Tente novamente; se persistir, informe o administrador.');
+      return;
+    }
+    if (!sessionResult?.data?.session || !sessionResult?.data?.user) {
+      showMessage('A autenticação não criou uma sessão ativa. Verifique se o e-mail está confirmado e tente novamente.');
+      return;
+    }
+
+    await boot();
+    if (authGate && !authGate.hidden) {
+      if (!message.textContent.trim()) {
+        showMessage('A conta foi autenticada, mas o perfil institucional não foi carregado. Solicite a conferência do seu cadastro à administração.');
+      }
+    }
+  } catch (error) {
+    console.error('Falha no login da Central ANIT:', error);
+    showMessage('Ocorreu uma falha ao concluir o login. Seus dados não foram alterados. Tente novamente ou envie esta informação ao suporte da ANIT.');
+  } finally {
+    if (submit) {
+      submit.disabled = false;
+      submit.textContent = 'Entrar com segurança';
+    }
+  }
 });
 
 document.getElementById('forgotPassword')?.addEventListener('click', async () => {
