@@ -65,7 +65,7 @@ function formatColumnLabel(column) {
 
 const MODULES = [
   { section: 'associados', table: 'associates', title: 'Associados', columns: ['membership_number','full_name','email','phone','city','state','category','status'], fields: [
-    ['full_name','Nome completo','text',true],['email','E-mail','email'],['phone','Telefone','tel'],['city','Cidade','text'],['state','UF','text'],['professional_registration','Registro profissional','text'],['category','Categoria','text'],['joined_at','Data de filiação','date'],['status','Situação','select',['pending','active','suspended','resigned','excluded']]
+    ['full_name','Nome completo','text',true],['email','E-mail','email'],['phone','Telefone','tel'],['city','Cidade','text'],['state','UF','text'],['professional_registration','Registro profissional','text'],['category','Tipo de associado','select',true,['Associado Light','Associado Hard','Doador','Benemérito','Honorário','Institucional']],['joined_at','Data de filiação','date'],['status','Situação','select',['pending','active','suspended','resigned','excluded']]
   ]},
   { section: 'diretoria', table: 'board_members', title: 'Diretoria e mandatos', columns: ['full_name','office','term_start','term_end','status'], fields: [
     ['full_name','Nome completo','text',true],['office','Cargo','text',true],['term_start','Início do mandato','date',true],['term_end','Fim do mandato','date'],['status','Situação','select',false,['active','ended','revoked']]
@@ -150,7 +150,7 @@ function applyRoleVisibility(role) {
   }
 }
 
-function addDataPanel(module) {
+async function addDataPanel(module) {
   const section = document.getElementById(module.section);
   if (!section || document.getElementById('data-' + module.table)) return;
   section.querySelectorAll('.empty,.module-grid,.notice').forEach(node => node.remove());
@@ -166,6 +166,56 @@ function addDataPanel(module) {
   createForm.dataset.mode = 'create';
   const allowedToManage = canManage(module.table, currentProfile.role);
   let editingId = null;
+  if (module.table === 'associates' && currentProfile.role === 'administrator') {
+    const typesButton = document.createElement('button');
+    typesButton.type = 'button';
+    typesButton.className = 'btn btn-light btn-small';
+    typesButton.textContent = 'Gerenciar tipos de associados';
+    panel.querySelector('.anit-toolbar').appendChild(typesButton);
+    typesButton.addEventListener('click', async () => {
+      const { data, error } = await neon.from('system_settings').select('setting_value').eq('setting_key','associate_types').maybeSingle();
+      if (error) {
+        showMessage('Não foi possível consultar os tipos de associados.');
+        return;
+      }
+      const defaults = ['Associado Light','Associado Hard','Doador','Benemérito','Honorário','Institucional'];
+      const current = Array.isArray(data?.setting_value) ? data.setting_value : defaults;
+      const answer = window.prompt('Informe os tipos de associados separados por vírgula. Esses tipos serão oferecidos na edição dos cadastros recebidos:', current.join(', '));
+      if (answer === null) return;
+      const types = [...new Set(answer.split(',').map(value => value.trim()).filter(Boolean))];
+      if (!types.length) {
+        showMessage('Mantenha pelo menos um tipo de associado cadastrado.');
+        return;
+      }
+      const { error: saveError } = await neon.from('system_settings').upsert({
+        setting_key: 'associate_types',
+        setting_value: types,
+        updated_by: currentUser.id
+      }, { onConflict: 'setting_key' });
+      if (saveError) {
+        showMessage('Não foi possível salvar os tipos de associados.');
+        return;
+      }
+      const category = createForm.elements.namedItem('category');
+      if (category) {
+        const previous = category.value;
+        category.replaceChildren(...types.map(type => {
+          const option = document.createElement('option');
+          option.value = type;
+          option.textContent = type;
+          return option;
+        }));
+        if (previous && !types.includes(previous)) {
+          const option = document.createElement('option');
+          option.value = previous;
+          option.textContent = previous;
+          category.appendChild(option);
+        }
+        category.value = previous && [...category.options].some(option => option.value === previous) ? previous : types[0];
+      }
+      showMessage('Tipos de associados atualizados.', 'success');
+    });
+  }
   const submit = document.createElement('button');
   submit.type = 'submit';
   submit.className = 'btn btn-primary';
@@ -212,13 +262,29 @@ function addDataPanel(module) {
     field.appendChild(input);
     createForm.appendChild(field);
   });
+
+  if (module.table === 'associates') {
+    const category = createForm.elements.namedItem('category');
+    const { data: typeSetting } = await neon.from('system_settings').select('setting_value').eq('setting_key','associate_types').maybeSingle();
+    const configuredTypes = Array.isArray(typeSetting?.setting_value) ? typeSetting.setting_value : null;
+    if (category && configuredTypes?.length) {
+      category.replaceChildren(...configuredTypes.map(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        return option;
+      }));
+    }
+  }
+
   if (allowedToManage) {
     createForm.append(submit, cancel);
+    if (module.table === 'associates') createForm.hidden = true;
     createForm.addEventListener('submit', async event => {
       event.preventDefault();
       const feedback = panel.querySelector('.anit-feedback');
       if (module.table === 'associates' && !editingId) {
-        feedback.textContent = 'Novas filiações devem ser solicitadas pela página pública da ANIT.';
+        feedback.textContent = 'Novas filiações devem ser solicitadas exclusivamente pela página pública da ANIT.';
         feedback.dataset.kind = 'error';
         return;
       }
@@ -605,7 +671,9 @@ async function boot() {
   authGate.hidden = true;
   shell.style.display = 'grid';
   applyRoleVisibility(currentProfile.role);
-  MODULES.filter(module => roleAllowed(module.section, currentProfile.role)).forEach(addDataPanel);
+  for (const module of MODULES.filter(item => roleAllowed(item.section, currentProfile.role))) {
+    await addDataPanel(module);
+  }
   await loadDashboardStats();
   await loadAudit();
   await loadUsersAndPermissions();
