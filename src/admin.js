@@ -379,7 +379,8 @@ async function loadAudit() {
 
 
 async function loadUsersAndPermissions() {
-  if (currentProfile.role !== 'administrator') return;
+  if (!['administrator','president'].includes(currentProfile.role)) return;
+  const canAdministerUsers=currentProfile.role==='administrator';
   const section=document.getElementById('usuarios');
   if(!section || document.getElementById('anit-users-manager')) return;
   section.querySelectorAll('.notice,.role-list').forEach(node=>node.remove());
@@ -388,7 +389,7 @@ async function loadUsersAndPermissions() {
   panel.innerHTML='<div class="panel-head"><h2>Gerenciar contas e perfis</h2></div><p class="muted">A conta precisa existir primeiro no Neon Auth. Depois, informe o UUID do usuário para atribuir ou atualizar seu perfil institucional. Não compartilhe senhas.</p><form class="field-grid anit-create-form" id="anit-user-form"><div class="field"><label>UUID da conta Neon Auth</label><input name="user_id" required placeholder="UUID do usuário"></div><div class="field"><label>Nome completo</label><input name="full_name" required></div><div class="field"><label>Função institucional</label><select name="role"><option value="president">Presidência</option><option value="vice_president">Vice-presidência</option><option value="treasurer">Tesouraria</option><option value="secretary">Secretaria</option><option value="director">Diretoria</option><option value="administrator">Administrador</option></select></div><div class="field"><label>Situação</label><select name="active"><option value="true">Ativo</option><option value="false">Inativo</option></select></div><button class="btn btn-primary" type="submit">Salvar perfil</button></form><p class="anit-feedback" role="status"></p><div class="anit-users-table"></div>';
   section.appendChild(panel);
   const userForm=panel.querySelector('#anit-user-form');
-  userForm.addEventListener('submit',async event=>{
+  userForm?.addEventListener('submit',async event=>{
     event.preventDefault();
     const raw=Object.fromEntries(new FormData(userForm).entries());
     const feedback=panel.querySelector('.anit-feedback');
@@ -415,9 +416,7 @@ async function loadUsersAndPermissions() {
     (data||[]).forEach(user=>{
       const tr=document.createElement('tr');
       [user.full_name,user.user_id,ROLE_LABELS[user.role]||user.role,user.active?'Ativo':'Inativo',new Date(user.created_at).toLocaleDateString('pt-BR')].forEach(value=>{const td=document.createElement('td');td.textContent=value||'—';tr.appendChild(td);});
-      const action=document.createElement('td');const edit=document.createElement('button');edit.type='button';edit.className='btn btn-light btn-small';edit.textContent='Editar';
-      edit.addEventListener('click',()=>{userForm.elements.user_id.value=user.user_id;userForm.elements.full_name.value=user.full_name;userForm.elements.role.value=user.role;userForm.elements.active.value=String(user.active);userForm.scrollIntoView({behavior:'smooth',block:'center'});});
-      action.appendChild(edit);tr.appendChild(action);tbody.appendChild(tr);
+      const action=document.createElement('td');if(canAdministerUsers){const edit=document.createElement('button');edit.type='button';edit.className='btn btn-light btn-small';edit.textContent='Editar';edit.addEventListener('click',()=>{userForm.elements.user_id.value=user.user_id;userForm.elements.full_name.value=user.full_name;userForm.elements.role.value=user.role;userForm.elements.active.value=String(user.active);userForm.scrollIntoView({behavior:'smooth',block:'center'});});action.appendChild(edit);}else{action.textContent='Consulta';}tr.appendChild(action);tbody.appendChild(tr);
     });
     table.appendChild(tbody);const frame=document.createElement('div');frame.className='table-wrap';frame.appendChild(table);wrap.replaceChildren(frame);
   }
@@ -442,7 +441,7 @@ async function loadUsersAndPermissions() {
       if(error){window.alert('Não foi possível alterar: '+error.message);return;}
       item.allowed=!item.allowed;toggle.textContent=item.allowed?'Revogar':'Liberar';tr.children[2].textContent=item.allowed?'Sim':'Não';
     });
-    action.appendChild(toggle);tr.appendChild(action);tbody.appendChild(tr);
+    if(currentProfile.role==='administrator') action.appendChild(toggle); else action.textContent='Consulta';tr.appendChild(action);tbody.appendChild(tr);
   });
   table.appendChild(tbody);const frame=document.createElement('div');frame.className='table-wrap';frame.appendChild(table);permissionsWrap.replaceChildren(frame);
 }
@@ -488,15 +487,16 @@ async function renderReports(panel){
 }
 
 async function loadSettings() {
-  if(currentProfile.role!=='administrator') return;
+  if(!['administrator','president'].includes(currentProfile.role)) return;
+  const canEditSettings=currentProfile.role==='administrator';
   const section=document.getElementById('configuracoes');
   if(!section || document.getElementById('anit-settings')) return;
   section.querySelectorAll('.panel,.module-grid').forEach(node=>node.remove());
   const panel=document.createElement('div');panel.id='anit-settings';panel.className='panel anit-data-panel';
-  panel.innerHTML='<div class="panel-head"><h2>Configurações institucionais</h2></div><form class="field-grid anit-create-form"><div class="field"><label>Chave da configuração</label><input name="setting_key" required placeholder="ex.: institutional_email"></div><div class="field full"><label>Valor em JSON</label><textarea name="setting_value" rows="5" required placeholder="{&quot;value&quot;:&quot;...&quot;}"></textarea></div><button class="btn btn-primary" type="submit">Salvar configuração</button></form><p class="anit-feedback" role="status"></p><div class="anit-settings-table"></div>';
+  panel.innerHTML='<div class="panel-head"><h2>Configurações institucionais</h2></div>'+(canEditSettings?'<form class="field-grid anit-create-form"><div class="field"><label>Chave da configuração</label><input name="setting_key" required placeholder="ex.: institutional_email"></div><div class="field full"><label>Valor em JSON</label><textarea name="setting_value" rows="5" required placeholder="{&quot;value&quot;:&quot;...&quot;}"></textarea></div><button class="btn btn-primary" type="submit">Salvar configuração</button></form>':'<p class="muted">Acesso de consulta. Somente o Administrador pode alterar parâmetros técnicos.</p>')+'<p class="anit-feedback" role="status"></p><div class="anit-settings-table"></div>';
   section.appendChild(panel);
   const form=panel.querySelector('form');
-  form.addEventListener('submit',async event=>{
+  form?.addEventListener('submit',async event=>{
     event.preventDefault();const feedback=panel.querySelector('.anit-feedback');const raw=Object.fromEntries(new FormData(form).entries());
     let value;try{value=JSON.parse(raw.setting_value);}catch{feedback.textContent='O valor precisa ser um JSON válido.';feedback.dataset.kind='error';return;}
     const {error}=await neon.from('system_settings').upsert({setting_key:raw.setting_key.trim(),setting_value:value,updated_by:currentUser.id},{onConflict:'setting_key'});
