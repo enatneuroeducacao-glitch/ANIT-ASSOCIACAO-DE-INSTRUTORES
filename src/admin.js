@@ -97,7 +97,7 @@ const MODULES = [
     ['expires_at','Validade / vencimento','date'],
     ['version','Versão','number',true],
     ['document_status','Situação documental','select',true,['vigente','em revisão','substituído','vencido','arquivado']],
-    ['confidentiality','Classificação de acesso','select',true,['public','internal','restricted','confidential']],
+    ['confidentiality','Classificação de acesso','select',true,['internal','public','restricted','confidential']],
     ['description','Ementa / descrição','textarea']
   ]},
   { section: 'juridico', table: 'legal_cases', title: 'Demandas jurídicas', columns: ['title','case_number','institution','status','deadline'], fields: [
@@ -401,8 +401,15 @@ async function addDataPanel(module) {
           feedback.textContent = 'Registro cadastrado com sucesso.';
         }
         if (module.table === 'official_documents' && attachmentFiles.length) {
-          await uploadOfficialDocumentAttachments(savedDocumentId, attachmentFiles, activeSessionUser.id);
-          feedback.textContent = 'Documento salvo e anexo(s) armazenado(s) com sucesso.';
+          try {
+            await uploadOfficialDocumentAttachments(savedDocumentId, attachmentFiles, activeSessionUser.id);
+            feedback.textContent = 'Documento salvo e anexo(s) armazenado(s) com sucesso.';
+          } catch (attachmentError) {
+            feedback.textContent = 'O documento foi salvo, mas houve falha ao armazenar os anexos: ' + attachmentError.message + '. Use a opção Anexos no registro para tentar novamente.';
+            feedback.dataset.kind = 'error';
+            await loadTable(module);
+            return;
+          }
         }
         feedback.dataset.kind = 'success';
         editingId = null;
@@ -674,7 +681,7 @@ async function loadTable(module) {
     th.textContent = formatColumnLabel(column);
     headerRow.appendChild(th);
   });
-  if (canManage(module.table,currentProfile.role)) {
+  if (canManage(module.table,currentProfile.role) || module.table === 'official_documents') {
     const th=document.createElement('th'); th.textContent='Ações'; headerRow.appendChild(th);
   }
   head.appendChild(headerRow); table.appendChild(head);
@@ -687,27 +694,30 @@ async function loadTable(module) {
       td.textContent = value == null ? '—' : (typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? new Date(value).toLocaleString('pt-BR') : translateEnum(value));
       tr.appendChild(td);
     });
-    if (canManage(module.table,currentProfile.role)) {
+    if (canManage(module.table,currentProfile.role) || module.table === 'official_documents') {
       const actions=document.createElement('td');
-      const edit=document.createElement('button');
-      edit.type='button'; edit.className='btn btn-light btn-small'; edit.textContent='Editar';
-      edit.addEventListener('click',()=>panel._editRecord(row));
-      const del=document.createElement('button');
-      del.type='button'; del.className='btn btn-danger btn-small'; del.textContent='Excluir';
-      del.addEventListener('click',async()=>{
-        if (!window.confirm('Confirma a exclusão deste registro? Esta ação ficará registrada na auditoria.')) return;
-        const {error:deleteError}=await neon.from(module.table).delete().eq('id',row.id);
-        const feedback=panel.querySelector('.anit-feedback');
-        if(deleteError){feedback.textContent='Não foi possível excluir: '+deleteError.message;feedback.dataset.kind='error';return;}
-        feedback.textContent='Registro excluído.';feedback.dataset.kind='success';await loadTable(module);
-      });
       if (module.table === 'official_documents') {
         const attachments = document.createElement('button');
         attachments.type='button'; attachments.className='btn btn-light btn-small'; attachments.textContent='Anexos';
         attachments.addEventListener('click',()=>showOfficialDocumentAttachments(row));
         actions.append(attachments);
       }
-      actions.append(edit,del); tr.appendChild(actions);
+      if (canManage(module.table,currentProfile.role)) {
+        const edit=document.createElement('button');
+        edit.type='button'; edit.className='btn btn-light btn-small'; edit.textContent='Editar';
+        edit.addEventListener('click',()=>panel._editRecord(row));
+        const del=document.createElement('button');
+        del.type='button'; del.className='btn btn-danger btn-small'; del.textContent='Excluir';
+        del.addEventListener('click',async()=>{
+          if (!window.confirm('Confirma a exclusão deste registro? Esta ação ficará registrada na auditoria.')) return;
+          const {error:deleteError}=await neon.from(module.table).delete().eq('id',row.id);
+          const feedback=panel.querySelector('.anit-feedback');
+          if(deleteError){feedback.textContent='Não foi possível excluir: '+deleteError.message;feedback.dataset.kind='error';return;}
+          feedback.textContent='Registro excluído.';feedback.dataset.kind='success';await loadTable(module);
+        });
+        actions.append(edit,del);
+      }
+      tr.appendChild(actions);
     }
     body.appendChild(tr);
   });
