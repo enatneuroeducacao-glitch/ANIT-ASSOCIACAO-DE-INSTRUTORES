@@ -506,6 +506,7 @@ async function loadSettings() {
   await renderSettings(panel);
 }
 async function renderSettings(panel){
+  const form=panel.querySelector('form');
   const wrap=panel.querySelector('.anit-settings-table');
   const {data,error}=await neon.from('system_settings').select('setting_key,setting_value,updated_at,updated_by').order('setting_key');
   if(error){wrap.textContent='Não foi possível consultar configurações: '+error.message;return;}
