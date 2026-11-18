@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { createClient } from '@neondatabase/neon-js';
 import { NeonAuthUIProvider, AuthView } from '@neondatabase/auth-ui';
 import './auth.css';
+import { NEON_AUTH_URL, NEON_DATA_API_URL } from './config.js';
 
-const authUrl = import.meta.env.VITE_NEON_AUTH_URL;
-const dataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL;
+const authUrl = NEON_AUTH_URL;
+const dataApiUrl = NEON_DATA_API_URL;
 const root = document.getElementById('auth-root');
 
 if (!authUrl || !dataApiUrl) {
