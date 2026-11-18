@@ -537,17 +537,19 @@ async function uploadOfficialDocumentAttachments(documentId, files, userId) {
     const buffer = await file.arrayBuffer();
     const digest = await crypto.subtle.digest('SHA-256', buffer);
     const checksum = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,'0')).join('');
-    const hex = [...new Uint8Array(buffer)].map(byte => byte.toString(16).padStart(2,'0')).join('');
-    const safeName = file.name.replace(/[\\/\\0-\\x1f]/g,'_').slice(0,240);
-    const { error } = await neon.from('official_document_attachments').insert({
-      document_id: documentId,
-      file_name: safeName,
-      content_type: expectedType,
-      file_size: file.size,
-      storage_key: documentId + '/' + crypto.randomUUID(),
-      checksum_sha256: checksum,
-      uploaded_by: userId,
-      file_data: '\\x' + hex
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    }
+    const base64 = btoa(binary);
+    const safeName = file.name.replaceAll('/','_').replaceAll('\\\\','_').replace(/[\\u0000-\\u001f]/g,'_').slice(0,240);
+    const { error } = await neon.rpc('store_official_document_attachment', {
+      p_document_id: documentId,
+      p_file_name: safeName,
+      p_content_type: expectedType,
+      p_file_base64: base64,
+      p_checksum_sha256: checksum
     });
     if (error) throw new Error('Falha ao armazenar ' + safeName + ': ' + error.message);
   }
@@ -617,16 +619,19 @@ async function showOfficialDocumentAttachments(docRecord) {
       download.disabled = true;
       try {
         const { data: fileRow, error: fileError } = await neon.from('official_document_attachments')
-          .select('file_name,content_type,file_data').eq('id',item.id).single();
+          .select('file_name,content_type,file_data,checksum_sha256').eq('id',item.id).single();
         if (fileError) throw fileError;
         const raw = fileRow.file_data;
         if (typeof raw !== 'string' || !raw.startsWith('\\x')) throw new Error('Formato binário retornado pelo banco não reconhecido.');
         const hex = raw.slice(2);
         const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(pair => parseInt(pair,16)));
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        const checksum = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,'0')).join('');
+        if (checksum !== fileRow.checksum_sha256) throw new Error('A verificação de integridade do arquivo falhou.');
         const url = URL.createObjectURL(new Blob([bytes],{type:fileRow.content_type || 'application/octet-stream'}));
         const anchor = document.createElement('a');
         anchor.href = url; anchor.download = fileRow.file_name; anchor.click();
-        URL.revokeObjectURL(url);
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
         feedback.textContent = 'Download iniciado.';
         feedback.dataset.kind = 'success';
       } catch (error) {
