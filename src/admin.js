@@ -435,16 +435,18 @@ document.getElementById('forgotPassword')?.addEventListener('click', async () =>
   if (!neon && AUTH_URL && DATA_API_URL) neon = createClient({ auth: { url: AUTH_URL }, dataApi: { url: DATA_API_URL } });
   const email = document.getElementById('loginEmail').value.trim();
   if (!email) {
-    showMessage('Informe seu e-mail no campo acima para receber as instruções de recuperação.');
+    showMessage('Informe seu e-mail no campo acima para receber um código de recuperação.');
     return;
   }
-  const redirectTo = 'https://enatneuroeducacao-glitch.github.io/ANIT-ASSOCIACAO-DE-INSTRUTORES/auth.html?path=reset-password';
-  const { error } = await neon.auth.requestPasswordReset({ email, redirectTo });
+  const { error } = await neon.auth.forgetPassword.emailOtp({ email });
   if (error) {
-    showMessage('Não foi possível enviar a recuperação. Verifique a configuração do serviço de e-mail ou contate o administrador.');
+    showMessage('Não foi possível enviar o código. Confirme se o e-mail já foi verificado e tente novamente. Detalhe: ' + error.message);
     return;
   }
-  showMessage('Se o e-mail estiver cadastrado, as instruções serão enviadas pelo serviço de autenticação Neon (Neon Auth), e não por um endereço institucional da ANIT. Procure uma mensagem do Neon e confira também a caixa de spam.', 'success');
+  const target = new URL('./auth.html', window.location.href);
+  target.searchParams.set('path', 'reset-password-otp');
+  target.searchParams.set('email', email);
+  window.location.assign(target.toString());
 });
 
 document.addEventListener('DOMContentLoaded', () => {
