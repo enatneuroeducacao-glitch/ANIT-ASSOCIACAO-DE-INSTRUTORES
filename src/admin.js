@@ -445,7 +445,7 @@ document.getElementById('forgotPassword')?.addEventListener('click', async () =>
     showMessage('Não foi possível enviar a recuperação. Verifique a configuração do serviço de e-mail ou contate o administrador.');
     return;
   }
-  showMessage('Se o e-mail estiver cadastrado, as instruções de recuperação serão enviadas. Verifique também a caixa de spam.', 'success');
+  showMessage('Se o e-mail estiver cadastrado, as instruções serão enviadas pelo serviço de autenticação Neon (Neon Auth), e não por um endereço institucional da ANIT. Procure uma mensagem do Neon e confira também a caixa de spam.', 'success');
 });
 
 document.addEventListener('DOMContentLoaded', () => {
