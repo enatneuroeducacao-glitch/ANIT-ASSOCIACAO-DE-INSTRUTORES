@@ -67,7 +67,7 @@ function clearMessage() {
 function roleAllowed(section, role) {
   if (role === 'administrator' || role === 'president') return true;
   const access = {
-    vice_president: ['dashboard','associados','diretoria','secretaria','documentos','juridico','representacao','reunioes','comunicacao','demandas','relatorios','usuarios'],
+    vice_president: ['dashboard','associados','diretoria','secretaria','documentos','juridico','representacao','reunioes','comunicacao','demandas','relatorios'],
     treasurer: ['dashboard','associados','diretoria','financeiro','documentos','relatorios'],
     secretary: ['dashboard','associados','diretoria','secretaria','documentos','reunioes','comunicacao','demandas','relatorios'],
     director: ['dashboard','associados','diretoria','financeiro','secretaria','documentos','juridico','representacao','reunioes','demandas','relatorios']
@@ -286,6 +286,75 @@ async function loadAudit() {
   const frame=document.createElement('div'); frame.className='table-wrap'; frame.appendChild(table); wrap.replaceChildren(frame);
 }
 
+
+async function loadUsersAndPermissions() {
+  if (!['administrator','president'].includes(currentProfile.role)) return;
+  const section = document.getElementById('usuarios');
+  if (!section) return;
+  const usersPanel = document.createElement('div');
+  usersPanel.className = 'panel anit-data-panel';
+  usersPanel.innerHTML = '<div class="panel-head"><h2>Contas e perfis autorizados</h2><span class="muted">Acesso restrito</span></div><div class="anit-users-table"></div><p class="muted">A criação de novas contas é controlada pela administração. O cadastro público permanece desativado.</p>';
+  section.appendChild(usersPanel);
+  const usersWrap = usersPanel.querySelector('.anit-users-table');
+  const { data: users, error: usersError } = await neon.from('user_profiles')
+    .select('full_name,role,active,created_at')
+    .order('created_at',{ascending:false}).limit(100);
+  if (usersError) {
+    usersWrap.textContent = 'Não foi possível consultar os perfis: ' + usersError.message;
+  } else if (!users?.length) {
+    usersWrap.textContent = 'Nenhum perfil institucional foi atribuído ainda.';
+  } else {
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    ['Usuário','Função','Situação','Criado em'].forEach(label => {
+      const th = document.createElement('th'); th.textContent = label; trh.appendChild(th);
+    });
+    thead.appendChild(trh); table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    users.forEach(user => {
+      const tr = document.createElement('tr');
+      [user.full_name,ROLE_LABELS[user.role] || user.role,user.active ? 'Ativo' : 'Inativo',new Date(user.created_at).toLocaleDateString('pt-BR')].forEach(value => {
+        const td = document.createElement('td'); td.textContent = value || '—'; tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    const frame = document.createElement('div'); frame.className = 'table-wrap'; frame.appendChild(table); usersWrap.replaceChildren(frame);
+  }
+
+  const permissionsPanel = document.createElement('div');
+  permissionsPanel.className = 'panel anit-data-panel';
+  permissionsPanel.innerHTML = '<div class="panel-head"><h2>Matriz de permissões</h2></div><div class="anit-permissions-table"></div>';
+  section.appendChild(permissionsPanel);
+  const permissionsWrap = permissionsPanel.querySelector('.anit-permissions-table');
+  const { data: permissions, error: permissionsError } = await neon.from('role_permissions')
+    .select('role,permission_key,allowed').order('role',{ascending:true}).limit(200);
+  if (permissionsError) {
+    permissionsWrap.textContent = 'Não foi possível consultar a matriz: ' + permissionsError.message;
+  } else if (!permissions?.length) {
+    permissionsWrap.textContent = 'A matriz de permissões ainda não foi cadastrada.';
+  } else {
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    ['Função','Permissão','Liberada'].forEach(label => {
+      const th=document.createElement('th'); th.textContent=label; trh.appendChild(th);
+    });
+    thead.appendChild(trh); table.appendChild(thead);
+    const tbody=document.createElement('tbody');
+    permissions.forEach(item => {
+      const tr=document.createElement('tr');
+      [ROLE_LABELS[item.role] || item.role,item.permission_key,item.allowed ? 'Sim' : 'Não'].forEach(value => {
+        const td=document.createElement('td'); td.textContent=value; tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    const frame=document.createElement('div'); frame.className='table-wrap'; frame.appendChild(table); permissionsWrap.replaceChildren(frame);
+  }
+}
+
 async function boot() {
   if (!AUTH_URL || !DATA_API_URL) {
     showMessage('A configuração pública da autenticação e da API ainda não foi adicionada ao ambiente de hospedagem.');
@@ -312,6 +381,7 @@ async function boot() {
   applyRoleVisibility(currentProfile.role);
   MODULES.forEach(addDataPanel);
   await loadAudit();
+  await loadUsersAndPermissions();
 }
 
 form?.addEventListener('submit', async event => {
