@@ -65,7 +65,7 @@ function formatColumnLabel(column) {
 
 const MODULES = [
   { section: 'associados', table: 'associates', title: 'Associados', columns: ['membership_number','full_name','email','phone','city','state','category','status'], fields: [
-    ['full_name','Nome completo','text',true],['email','E-mail','email'],['phone','Telefone','tel'],['city','Cidade','text'],['state','UF','text'],['professional_registration','Registro profissional','text'],['category','Tipo de associado','select',true,['Associado Light','Associado Hard','Doador','Benemérito','Honorário','Institucional']],['joined_at','Data de filiação','date'],['status','Situação','select',['pending','active','suspended','resigned','excluded']]
+    ['membership_number','Matrícula','text'],['category','Tipo de associado','select',true,['Associado Light','Associado Hard','Doador','Benemérito','Honorário','Institucional']],['joined_at','Data de filiação','date'],['status','Situação','select',true,['pending','active','suspended','resigned','excluded']],['notes','Observações administrativas','textarea']
   ]},
   { section: 'diretoria', table: 'board_members', title: 'Diretoria e mandatos', columns: ['full_name','office','term_start','term_end','status'], fields: [
     ['full_name','Nome completo','text',true],['office','Cargo','text',true],['term_start','Início do mandato','date',true],['term_end','Fim do mandato','date'],['status','Situação','select',false,['active','ended','revoked']]
@@ -264,6 +264,11 @@ async function addDataPanel(module) {
   });
 
   if (module.table === 'associates') {
+    const privacyNotice = document.createElement('p');
+    privacyNotice.className = 'muted';
+    privacyNotice.textContent = 'Dados pessoais (nome, e-mail, telefone, cidade, UF e registro profissional) são somente para consulta nesta área. A administração não pode alterá-los. A correção deverá ser solicitada pelo próprio associado após validação de identidade.';
+    privacyNotice.style.gridColumn = '1 / -1';
+    formWrap.appendChild(privacyNotice);
     const category = createForm.elements.namedItem('category');
     const { data: typeSetting } = await neon.from('system_settings').select('setting_value').eq('setting_key','associate_types').maybeSingle();
     const configuredTypes = Array.isArray(typeSetting?.setting_value) ? typeSetting.setting_value : null;
