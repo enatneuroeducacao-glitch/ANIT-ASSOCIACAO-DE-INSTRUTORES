@@ -309,6 +309,7 @@ async function addDataPanel(module) {
     }
     input.id = module.table + '-' + name;
     input.name = name;
+    if (module.table === 'official_documents' && name === 'version') input.value = '1';
     if (module.table === 'protocols' && name === 'protocol_number') {
       input.readOnly = true;
       input.placeholder = 'Gerado automaticamente ao iniciar novo protocolo';
