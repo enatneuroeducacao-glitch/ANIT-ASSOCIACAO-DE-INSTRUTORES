@@ -47,7 +47,7 @@ function VerifyEmailOtp({ neon }) {
         <label htmlFor="verify-email">E-mail da conta</label>
         <input id="verify-email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" disabled={verified} />
         <label htmlFor="verify-otp">Código recebido por e-mail</label>
-        <input id="verify-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={otp} onChange={e => setOtp(e.target.value.replace(/\\D/g, '').slice(0, 6))} placeholder="000000" disabled={verified} />
+        <input id="verify-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={otp} onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} placeholder="000000" disabled={verified} />
         {error && <p className="verify-error" role="alert">{error}</p>}
         {message && <p className="verify-success" role="status">{message}</p>}
         {!verified && <button type="submit" disabled={loading || otp.length !== 6}>{loading ? 'Validando...' : 'Confirmar e-mail'}</button>}
