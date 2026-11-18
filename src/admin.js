@@ -514,10 +514,15 @@ async function renderSettings(panel){
   ['Chave','Valor','Atualizada em','Ação'].forEach(x=>{const th=document.createElement('th');th.textContent=x;hr.appendChild(th);});thead.appendChild(hr);table.appendChild(thead);
   const body=document.createElement('tbody');
   (data||[]).forEach(item=>{const tr=document.createElement('tr');[item.setting_key,JSON.stringify(item.setting_value),new Date(item.updated_at).toLocaleString('pt-BR')].forEach(value=>{const td=document.createElement('td');td.textContent=value;tr.appendChild(td);});
-    const action=document.createElement('td');const edit=document.createElement('button');edit.type='button';edit.className='btn btn-light btn-small';edit.textContent='Carregar';
-    edit.addEventListener('click',()=>{form.elements.setting_key.value=item.setting_key;form.elements.setting_value.value=JSON.stringify(item.setting_value,null,2);form.scrollIntoView({behavior:'smooth',block:'center'});});
-    const del=document.createElement('button');del.type='button';del.className='btn btn-danger btn-small';del.textContent='Excluir';del.addEventListener('click',async()=>{if(!confirm('Excluir esta configuração?'))return;const {error}=await neon.from('system_settings').delete().eq('setting_key',item.setting_key);if(error){alert(error.message);return;}await renderSettings(panel);});
-    action.append(edit,del);tr.appendChild(action);body.appendChild(tr);
+    const action=document.createElement('td');
+    if(form){
+      const edit=document.createElement('button');edit.type='button';edit.className='btn btn-light btn-small';edit.textContent='Carregar';
+      edit.addEventListener('click',()=>{form.elements.setting_key.value=item.setting_key;form.elements.setting_value.value=JSON.stringify(item.setting_value,null,2);form.scrollIntoView({behavior:'smooth',block:'center'});});
+      const del=document.createElement('button');del.type='button';del.className='btn btn-danger btn-small';del.textContent='Excluir';
+      del.addEventListener('click',async()=>{if(!confirm('Excluir esta configuração?'))return;const {error}=await neon.from('system_settings').delete().eq('setting_key',item.setting_key);if(error){alert(error.message);return;}await renderSettings(panel);});
+      action.append(edit,del);
+    }else{action.textContent='Consulta';}
+    tr.appendChild(action);body.appendChild(tr);
   });
   table.appendChild(body);const frame=document.createElement('div');frame.className='table-wrap';frame.appendChild(table);wrap.replaceChildren(frame);
 }
