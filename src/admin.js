@@ -385,7 +385,7 @@ async function boot() {
     showMessage('A configuração pública da autenticação e da API ainda não foi adicionada ao ambiente de hospedagem.');
     return;
   }
-  neon = createClient({ auth: { url: AUTH_URL }, dataApi: { url: DATA_API_URL } });
+  neon = createClient({ auth: { url: AUTH_URL }, dataApi: { url: DATA_API_URL, options: { db: { schema: 'anit' } } } });
   const { data, error } = await neon.auth.getSession();
   if (error || !data?.session || !data?.user) {
     authGate.hidden = false;
@@ -418,7 +418,7 @@ form?.addEventListener('submit', async event => {
       showMessage('O ambiente ainda não está configurado para autenticação.');
       return;
     }
-    neon = createClient({ auth: { url: AUTH_URL }, dataApi: { url: DATA_API_URL } });
+    neon = createClient({ auth: { url: AUTH_URL }, dataApi: { url: DATA_API_URL, options: { db: { schema: 'anit' } } } });
   }
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
@@ -432,7 +432,7 @@ form?.addEventListener('submit', async event => {
 
 document.getElementById('forgotPassword')?.addEventListener('click', async () => {
   clearMessage();
-  if (!neon && AUTH_URL && DATA_API_URL) neon = createClient({ auth: { url: AUTH_URL }, dataApi: { url: DATA_API_URL } });
+  if (!neon && AUTH_URL && DATA_API_URL) neon = createClient({ auth: { url: AUTH_URL }, dataApi: { url: DATA_API_URL, options: { db: { schema: 'anit' } } } });
   const email = document.getElementById('loginEmail').value.trim();
   if (!email) {
     showMessage('Informe seu e-mail no campo acima para receber um código de recuperação.');
