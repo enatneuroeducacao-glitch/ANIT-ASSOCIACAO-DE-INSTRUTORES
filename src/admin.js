@@ -135,6 +135,7 @@ function addDataPanel(module) {
     createForm.dataset.mode = 'create';
     submit.textContent = 'Salvar registro';
     cancel.hidden = true;
+    if (module.table === 'associates') createForm.hidden = true;
     panel.querySelector('.anit-feedback').textContent = '';
   });
   module.fields.forEach(([name,label,type,required,options]) => {
@@ -170,6 +171,11 @@ function addDataPanel(module) {
     createForm.addEventListener('submit', async event => {
       event.preventDefault();
       const feedback = panel.querySelector('.anit-feedback');
+      if (module.table === 'associates' && !editingId) {
+        feedback.textContent = 'Novas filiações devem ser solicitadas pela página pública da ANIT.';
+        feedback.dataset.kind = 'error';
+        return;
+      }
       const payload = Object.fromEntries(new FormData(createForm).entries());
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') delete payload[key];
@@ -194,6 +200,7 @@ function addDataPanel(module) {
         createForm.dataset.mode = 'create';
         submit.textContent = 'Salvar registro';
         cancel.hidden = true;
+        if (module.table === 'associates') createForm.hidden = true;
         await loadTable(module);
       } catch (error) {
         feedback.textContent = 'Não foi possível salvar: ' + (error.message || 'erro desconhecido');
@@ -202,6 +209,7 @@ function addDataPanel(module) {
         submit.disabled = false;
       }
     });
+    if (module.table === 'associates') createForm.hidden = true;
     formWrap.appendChild(createForm);
   } else {
     const note = document.createElement('p');
@@ -216,6 +224,7 @@ function addDataPanel(module) {
   panel._editRecord = row => {
     if (!allowedToManage) return;
     editingId = row.id;
+    createForm.hidden = false;
     module.fields.forEach(([name]) => {
       const input = createForm.elements.namedItem(name);
       if (!input) return;
