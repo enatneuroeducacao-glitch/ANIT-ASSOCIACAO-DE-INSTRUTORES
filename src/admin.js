@@ -1,7 +1,8 @@
 import { createClient } from '@neondatabase/neon-js';
+import { NEON_AUTH_URL, NEON_DATA_API_URL } from './config.js';
 
-const AUTH_URL = import.meta.env.VITE_NEON_AUTH_URL;
-const DATA_API_URL = import.meta.env.VITE_NEON_DATA_API_URL;
+const AUTH_URL = NEON_AUTH_URL;
+const DATA_API_URL = NEON_DATA_API_URL;
 const authGate = document.getElementById('authGate');
 const shell = document.querySelector('.shell');
 const message = document.getElementById('authMessage');
