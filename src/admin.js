@@ -159,9 +159,7 @@ function addDataPanel(module) {
         if (payload[key] === '') delete payload[key];
         if (['amount'].includes(key) && payload[key] !== undefined) payload[key] = Number(payload[key]);
       });
-      if (module.table === 'associates') payload.created_by = currentUser.id;
-      if (module.table === 'financial_entries') payload.created_by = currentUser.id;
-      if (module.table === 'protocols') payload.created_by = currentUser.id;
+      payload.created_by = currentUser.id;
       const { error } = await neon.from(module.table).insert(payload);
       if (error) {
         feedback.textContent = 'Não foi possível salvar: ' + error.message;
