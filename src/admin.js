@@ -32,6 +32,8 @@ const ENUM_LABELS = {
   low: 'Baixa', normal: 'Normal', high: 'Alta', urgent: 'Urgente',
   waiting: 'Aguardando', resolved: 'Resolvido',
   repealed: 'Revogada integralmente',
+  vigente: 'Vigente', 'em revisão': 'Em revisão', substituído: 'Substituído',
+  vencido: 'Vencido', arquivado: 'Arquivado',
   federal: 'Federal', estadual: 'Estadual', municipal: 'Municipal',
   institucional: 'Institucional'
 };
@@ -48,7 +50,9 @@ const COLUMN_LABELS = {
   title: 'Título', document_type: 'Tipo documental',
   document_number: 'Número do documento', version: 'Versão',
   issued_at: 'Data de emissão', expires_at: 'Validade',
-  confidentiality: 'Classificação', case_number: 'Número do processo',
+  confidentiality: 'Classificação', category: 'Categoria documental',
+  issuing_body: 'Órgão emissor / responsável', document_status: 'Situação documental',
+  storage_path: 'Arquivo / link seguro', case_number: 'Número do processo',
   institution: 'Órgão/Instituição', deadline: 'Prazo',
   contact_name: 'Nome do contato', next_action_at: 'Próxima ação',
   meeting_type: 'Tipo de reunião', starts_at: 'Início', ends_at: 'Término',
@@ -83,8 +87,18 @@ const MODULES = [
   { section: 'secretaria', table: 'protocols', title: 'Protocolos', columns: ['protocol_number','direction','subject','sender','recipient','received_at','due_date','status'], fields: [
     ['received_at','Data de recebimento','datetime-local',true],['protocol_number','Número do protocolo','text',true],['direction','Fluxo','select',true,['incoming','outgoing','internal']],['subject','Assunto','text',true],['sender','Remetente','text'],['recipient','Destinatário','text'],['due_date','Prazo','date'],['status','Situação','select',false,['open','in_progress','answered','archived']],['notes','Observações','textarea']
   ]},
-  { section: 'documentos', table: 'official_documents', title: 'Documentos oficiais', columns: ['title','document_type','document_number','version','issued_at','expires_at','confidentiality'], fields: [
-    ['title','Título','text',true],['document_type','Tipo documental','text',true],['document_number','Número','text'],['issued_at','Data de emissão','date'],['expires_at','Validade','date'],['confidentiality','Classificação','select',false,['public','internal','restricted','confidential']],['storage_path','Referência do arquivo','text']
+  { section: 'documentos', table: 'official_documents', title: 'Arquivo digital institucional', columns: ['title','category','document_type','document_number','issuing_body','version','issued_at','expires_at','document_status','confidentiality'], fields: [
+    ['title','Título do documento','text',true],
+    ['category','Categoria documental','select',true,['Estatuto e regimentos','Atas e deliberações','Ofícios expedidos','Ofícios recebidos','Resoluções','Portarias','Notas técnicas','Pareceres','Contratos e convênios','Procurações','Certidões e registros','Editais e convocações','Relatórios institucionais','Comunicados e circulares','Documentos financeiros','Documentos cadastrais','Outros']],
+    ['document_type','Tipo / espécie documental','text',true],
+    ['document_number','Número / identificação','text'],
+    ['issuing_body','Órgão emissor / responsável','text'],
+    ['issued_at','Data de emissão','date'],
+    ['expires_at','Validade / vencimento','date'],
+    ['version','Versão','number',true],
+    ['document_status','Situação documental','select',true,['vigente','em revisão','substituído','vencido','arquivado']],
+    ['confidentiality','Classificação de acesso','select',true,['internal','public','restricted','confidential']],
+    ['description','Ementa / descrição','textarea']
   ]},
   { section: 'juridico', table: 'legal_cases', title: 'Demandas jurídicas', columns: ['title','case_number','institution','status','deadline'], fields: [
     ['title','Título','text',true],['case_number','Número do processo','text'],['institution','Órgão/Instituição','text'],['deadline','Prazo','date'],['status','Situação','select',false,['open','monitoring','closed','suspended']],['summary','Resumo','textarea']
@@ -170,6 +184,12 @@ async function addDataPanel(module) {
   panel.innerHTML = '<div class="panel-head"><h2></h2><div class="anit-toolbar"><input class="anit-search" type="search" placeholder="Buscar registros"><button class="btn btn-light anit-refresh" type="button">Atualizar</button></div></div><div class="anit-form-wrap"></div><div class="anit-table-wrap"></div><p class="anit-feedback" role="status"></p>';
   panel.querySelector('h2').textContent = module.title;
   section.appendChild(panel);
+  if (module.table === 'official_documents') {
+    const attachmentArea = document.createElement('div');
+    attachmentArea.className = 'anit-attachments panel';
+    attachmentArea.hidden = true;
+    panel.appendChild(attachmentArea);
+  }
   const formWrap = panel.querySelector('.anit-form-wrap');
   const createForm = document.createElement('form');
   createForm.className = 'field-grid anit-create-form';
@@ -244,6 +264,27 @@ async function addDataPanel(module) {
     if (['associates','protocols'].includes(module.table)) createForm.hidden = true;
     panel.querySelector('.anit-feedback').textContent = '';
   });
+  let attachmentInput = null;
+  if (module.table === 'official_documents') {
+    const attachmentField = document.createElement('div');
+    attachmentField.className = 'field';
+    attachmentField.style.gridColumn = '1 / -1';
+    const attachmentLabel = document.createElement('label');
+    attachmentLabel.textContent = 'Anexos (PDF, DOCX, XLSX, JPG ou PNG — até 5 MB cada)';
+    attachmentInput = document.createElement('input');
+    attachmentInput.type = 'file';
+    attachmentInput.name = '_attachments';
+    attachmentInput.multiple = true;
+    attachmentInput.accept = '.pdf,.docx,.xlsx,.jpg,.jpeg,.png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png';
+    attachmentLabel.htmlFor = 'official-documents-attachments';
+    attachmentInput.id = 'official-documents-attachments';
+    attachmentField.append(attachmentLabel, attachmentInput);
+    createForm.appendChild(attachmentField);
+    const hint = document.createElement('small');
+    hint.className = 'muted';
+    hint.textContent = 'Os arquivos serão armazenados no banco ANIT-ADMIN, com acesso protegido pelas permissões institucionais.';
+    attachmentField.appendChild(hint);
+  }
   module.fields.forEach(([name,label,type,required,options]) => {
     const field = document.createElement('div');
     field.className = 'field';
@@ -268,6 +309,7 @@ async function addDataPanel(module) {
     }
     input.id = module.table + '-' + name;
     input.name = name;
+    if (module.table === 'official_documents' && name === 'version') input.value = '1';
     if (module.table === 'protocols' && name === 'protocol_number') {
       input.readOnly = true;
       input.placeholder = 'Gerado automaticamente ao iniciar novo protocolo';
@@ -307,7 +349,11 @@ async function addDataPanel(module) {
         feedback.dataset.kind = 'error';
         return;
       }
+      const attachmentFiles = module.table === 'official_documents'
+        ? [...(attachmentInput?.files || [])].filter(file => file && file.size > 0)
+        : [];
       const payload = Object.fromEntries(new FormData(createForm).entries());
+      delete payload._attachments;
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') delete payload[key];
         if (['amount','version'].includes(key) && payload[key] !== undefined) payload[key] = Number(payload[key]);
@@ -333,20 +379,38 @@ async function addDataPanel(module) {
             throw new Error('O banco identificou seu usuário, mas não reconheceu o perfil Administrador ou Presidente. Solicite a revisão do vínculo entre sua conta e o perfil institucional.');
           }
         }
+        let savedDocumentId = editingId;
         if (editingId) {
           const { error } = await neon.from(module.table).update(payload).eq('id', editingId);
           if (error) throw error;
           feedback.textContent = 'Registro atualizado com sucesso.';
         } else {
           payload.created_by = activeSessionUser.id;
-          const { error } = await neon.from(module.table).insert(payload);
-          if (error) {
-            if (module.table === 'board_members' && /row-level security|policy/i.test(error.message || '')) {
-              throw new Error('O banco não reconheceu sua autorização para gerenciar a diretoria. Confirme que seu perfil está ativo como Administrador ou Presidente e entre novamente na Central.');
+          if (module.table === 'official_documents') {
+            const { data: inserted, error } = await neon.from(module.table).insert(payload).select('id').single();
+            if (error) throw error;
+            savedDocumentId = inserted.id;
+          } else {
+            const { error } = await neon.from(module.table).insert(payload);
+            if (error) {
+              if (module.table === 'board_members' && /row-level security|policy/i.test(error.message || '')) {
+                throw new Error('O banco não reconheceu sua autorização para gerenciar a diretoria. Confirme que seu perfil está ativo como Administrador ou Presidente e entre novamente na Central.');
+              }
+              throw error;
             }
-            throw error;
           }
           feedback.textContent = 'Registro cadastrado com sucesso.';
+        }
+        if (module.table === 'official_documents' && attachmentFiles.length) {
+          try {
+            await uploadOfficialDocumentAttachments(savedDocumentId, attachmentFiles, activeSessionUser.id);
+            feedback.textContent = 'Documento salvo e anexo(s) armazenado(s) com sucesso.';
+          } catch (attachmentError) {
+            feedback.textContent = 'O documento foi salvo, mas houve falha ao armazenar os anexos: ' + attachmentError.message + '. Use a opção Anexos no registro para tentar novamente.';
+            feedback.dataset.kind = 'error';
+            await loadTable(module);
+            return;
+          }
         }
         feedback.dataset.kind = 'success';
         editingId = null;
@@ -455,6 +519,150 @@ function canManage(table, role) {
   return (rules[table] || []).includes(role);
 }
 
+const OFFICIAL_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+const OFFICIAL_ATTACHMENT_TYPES = new Map([
+  ['pdf','application/pdf'],
+  ['docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ['jpg','image/jpeg'], ['jpeg','image/jpeg'], ['png','image/png']
+]);
+
+async function uploadOfficialDocumentAttachments(documentId, files, userId) {
+  if (!documentId) throw new Error('Documento não identificado para anexar arquivos.');
+  if (files.length > 10) throw new Error('Envie no máximo 10 anexos por operação.');
+  for (const file of files) {
+    const extension = (file.name.split('.').pop() || '').toLowerCase();
+    const expectedType = OFFICIAL_ATTACHMENT_TYPES.get(extension);
+    if (!expectedType) throw new Error('Formato não permitido: ' + file.name);
+    if (file.size > OFFICIAL_ATTACHMENT_MAX_BYTES) throw new Error('O arquivo ' + file.name + ' ultrapassa o limite de 5 MB.');
+    const buffer = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    const checksum = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,'0')).join('');
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    }
+    const base64 = btoa(binary);
+    const safeName = Array.from(file.name).map(char => char === '/' || char === String.fromCharCode(92) || char.charCodeAt(0) < 32 ? '_' : char).join('').slice(0,240);
+    const { error } = await neon.rpc('store_official_document_attachment', {
+      p_document_id: documentId,
+      p_file_name: safeName,
+      p_content_type: expectedType,
+      p_file_base64: base64,
+      p_checksum_sha256: checksum
+    });
+    if (error) throw new Error('Falha ao armazenar ' + safeName + ': ' + error.message);
+  }
+}
+
+async function showOfficialDocumentAttachments(docRecord) {
+  const panel = window.document.getElementById('data-official_documents');
+  const feedback = panel?.querySelector('.anit-feedback');
+  if (!panel || !feedback) return;
+  feedback.textContent = 'Consultando anexos...';
+  feedback.dataset.kind = 'info';
+  const { data, error } = await neon.from('official_document_attachments')
+    .select('id,file_name,content_type,file_size,created_at,uploaded_by')
+    .eq('document_id', docRecord.id).order('created_at',{ascending:false});
+  if (error) {
+    feedback.textContent = 'Não foi possível consultar anexos: ' + error.message;
+    feedback.dataset.kind = 'error';
+    return;
+  }
+  const area = panel.querySelector('.anit-attachments');
+  area.replaceChildren();
+  const heading = document.createElement('h3');
+  heading.textContent = 'Anexos — ' + docRecord.title;
+  area.appendChild(heading);
+  if (canManage('official_documents', currentProfile.role)) {
+    const uploadLabel = window.document.createElement('label');
+    uploadLabel.className = 'btn btn-primary btn-small';
+    uploadLabel.textContent = 'Adicionar anexos';
+    const uploadInput = window.document.createElement('input');
+    uploadInput.type = 'file';
+    uploadInput.multiple = true;
+    uploadInput.accept = '.pdf,.docx,.xlsx,.jpg,.jpeg,.png';
+    uploadInput.hidden = true;
+    uploadInput.addEventListener('change', async () => {
+      const files = [...uploadInput.files].filter(file => file.size > 0);
+      if (!files.length) return;
+      uploadLabel.textContent = 'Enviando...';
+      uploadLabel.style.pointerEvents = 'none';
+      try {
+        await uploadOfficialDocumentAttachments(docRecord.id, files, currentUser.id);
+        await showOfficialDocumentAttachments(docRecord);
+      } catch (error) {
+        feedback.textContent = 'Falha no envio: ' + error.message;
+        feedback.dataset.kind = 'error';
+      } finally {
+        uploadLabel.textContent = 'Adicionar anexos';
+        uploadLabel.style.pointerEvents = '';
+        uploadInput.value = '';
+      }
+    });
+    uploadLabel.appendChild(uploadInput);
+    area.appendChild(uploadLabel);
+  }
+  if (!data?.length) {
+    const empty = window.document.createElement('p');
+    empty.textContent = 'Este documento ainda não possui anexos.';
+    area.appendChild(empty);
+  }
+  for (const item of data || []) {
+    const line = document.createElement('div');
+    line.className = 'anit-attachment-row';
+    const label = document.createElement('span');
+    label.textContent = item.file_name + ' · ' + (item.file_size / 1024).toFixed(0) + ' KB';
+    const download = document.createElement('button');
+    download.type = 'button'; download.className = 'btn btn-light btn-small'; download.textContent = 'Baixar';
+    download.addEventListener('click', async () => {
+      download.disabled = true;
+      try {
+        const { data: fileRow, error: fileError } = await neon.from('official_document_attachments')
+          .select('file_name,content_type,file_data,checksum_sha256').eq('id',item.id).single();
+        if (fileError) throw fileError;
+        const raw = fileRow.file_data;
+        if (typeof raw !== 'string' || !raw.startsWith('\\x')) throw new Error('Formato binário retornado pelo banco não reconhecido.');
+        const hex = raw.slice(2);
+        const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(pair => parseInt(pair,16)));
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        const checksum = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,'0')).join('');
+        if (checksum !== fileRow.checksum_sha256) throw new Error('A verificação de integridade do arquivo falhou.');
+        const url = URL.createObjectURL(new Blob([bytes],{type:fileRow.content_type || 'application/octet-stream'}));
+        const anchor = document.createElement('a');
+        anchor.href = url; anchor.download = fileRow.file_name; anchor.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+        feedback.textContent = 'Download iniciado.';
+        feedback.dataset.kind = 'success';
+      } catch (error) {
+        feedback.textContent = 'Não foi possível baixar o anexo: ' + error.message;
+        feedback.dataset.kind = 'error';
+      } finally { download.disabled = false; }
+    });
+    line.append(label,download);
+    if (canManage('official_documents', currentProfile.role)) {
+      const remove = window.document.createElement('button');
+      remove.type = 'button'; remove.className = 'btn btn-danger btn-small'; remove.textContent = 'Excluir';
+      remove.addEventListener('click', async () => {
+        if (!window.confirm('Excluir permanentemente este anexo?')) return;
+        const { error: removeError } = await neon.from('official_document_attachments').delete().eq('id',item.id);
+        if (removeError) {
+          feedback.textContent = 'Não foi possível excluir: ' + removeError.message;
+          feedback.dataset.kind = 'error';
+          return;
+        }
+        await showOfficialDocumentAttachments(docRecord);
+      });
+      line.appendChild(remove);
+    }
+    area.appendChild(line);
+  }
+  feedback.textContent = (data?.length || 0) + ' anexo(s) localizado(s).';
+  feedback.dataset.kind = 'success';
+  area.hidden = false;
+}
+
 async function loadTable(module) {
   const panel = document.getElementById('data-' + module.table);
   if (!panel) return;
@@ -479,7 +687,7 @@ async function loadTable(module) {
     th.textContent = formatColumnLabel(column);
     headerRow.appendChild(th);
   });
-  if (canManage(module.table,currentProfile.role)) {
+  if (canManage(module.table,currentProfile.role) || module.table === 'official_documents') {
     const th=document.createElement('th'); th.textContent='Ações'; headerRow.appendChild(th);
   }
   head.appendChild(headerRow); table.appendChild(head);
@@ -492,21 +700,30 @@ async function loadTable(module) {
       td.textContent = value == null ? '—' : (typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? new Date(value).toLocaleString('pt-BR') : translateEnum(value));
       tr.appendChild(td);
     });
-    if (canManage(module.table,currentProfile.role)) {
+    if (canManage(module.table,currentProfile.role) || module.table === 'official_documents') {
       const actions=document.createElement('td');
-      const edit=document.createElement('button');
-      edit.type='button'; edit.className='btn btn-light btn-small'; edit.textContent='Editar';
-      edit.addEventListener('click',()=>panel._editRecord(row));
-      const del=document.createElement('button');
-      del.type='button'; del.className='btn btn-danger btn-small'; del.textContent='Excluir';
-      del.addEventListener('click',async()=>{
-        if (!window.confirm('Confirma a exclusão deste registro? Esta ação ficará registrada na auditoria.')) return;
-        const {error:deleteError}=await neon.from(module.table).delete().eq('id',row.id);
-        const feedback=panel.querySelector('.anit-feedback');
-        if(deleteError){feedback.textContent='Não foi possível excluir: '+deleteError.message;feedback.dataset.kind='error';return;}
-        feedback.textContent='Registro excluído.';feedback.dataset.kind='success';await loadTable(module);
-      });
-      actions.append(edit,del); tr.appendChild(actions);
+      if (module.table === 'official_documents') {
+        const attachments = document.createElement('button');
+        attachments.type='button'; attachments.className='btn btn-light btn-small'; attachments.textContent='Anexos';
+        attachments.addEventListener('click',()=>showOfficialDocumentAttachments(row));
+        actions.append(attachments);
+      }
+      if (canManage(module.table,currentProfile.role)) {
+        const edit=document.createElement('button');
+        edit.type='button'; edit.className='btn btn-light btn-small'; edit.textContent='Editar';
+        edit.addEventListener('click',()=>panel._editRecord(row));
+        const del=document.createElement('button');
+        del.type='button'; del.className='btn btn-danger btn-small'; del.textContent='Excluir';
+        del.addEventListener('click',async()=>{
+          if (!window.confirm('Confirma a exclusão deste registro? Esta ação ficará registrada na auditoria.')) return;
+          const {error:deleteError}=await neon.from(module.table).delete().eq('id',row.id);
+          const feedback=panel.querySelector('.anit-feedback');
+          if(deleteError){feedback.textContent='Não foi possível excluir: '+deleteError.message;feedback.dataset.kind='error';return;}
+          feedback.textContent='Registro excluído.';feedback.dataset.kind='success';await loadTable(module);
+        });
+        actions.append(edit,del);
+      }
+      tr.appendChild(actions);
     }
     body.appendChild(tr);
   });
