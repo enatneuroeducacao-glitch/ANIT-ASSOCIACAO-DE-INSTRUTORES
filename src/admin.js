@@ -680,7 +680,14 @@ async function boot() {
     showMessage('A configuração pública da autenticação e da API ainda não foi adicionada ao ambiente de hospedagem.');
     return;
   }
-  neon = createClient({ auth: { url: AUTH_URL }, dataApi: { url: DATA_API_URL, options: { db: { schema: 'anit' } } } });
+  // Reuse the same Neon client instance that completed sign-in.
+  // Recreating it here can lose the in-memory auth state before profile loading.
+  if (!neon) {
+    neon = createClient({
+      auth: { url: AUTH_URL },
+      dataApi: { url: DATA_API_URL, options: { db: { schema: 'anit' } } }
+    });
+  }
   const { data, error } = await neon.auth.getSession();
   if (error || !data?.session || !data?.user) {
     authGate.hidden = false;
