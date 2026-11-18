@@ -185,6 +185,12 @@ async function addDataPanel(module) {
   panel.innerHTML = '<div class="panel-head"><h2></h2><div class="anit-toolbar"><input class="anit-search" type="search" placeholder="Buscar registros"><button class="btn btn-light anit-refresh" type="button">Atualizar</button></div></div><div class="anit-form-wrap"></div><div class="anit-table-wrap"></div><p class="anit-feedback" role="status"></p>';
   panel.querySelector('h2').textContent = module.title;
   section.appendChild(panel);
+  if (module.table === 'official_documents') {
+    const attachmentArea = document.createElement('div');
+    attachmentArea.className = 'anit-attachments panel';
+    attachmentArea.hidden = true;
+    panel.appendChild(attachmentArea);
+  }
   const formWrap = panel.querySelector('.anit-form-wrap');
   const createForm = document.createElement('form');
   createForm.className = 'field-grid anit-create-form';
@@ -259,6 +265,27 @@ async function addDataPanel(module) {
     if (['associates','protocols'].includes(module.table)) createForm.hidden = true;
     panel.querySelector('.anit-feedback').textContent = '';
   });
+  let attachmentInput = null;
+  if (module.table === 'official_documents') {
+    const attachmentField = document.createElement('div');
+    attachmentField.className = 'field';
+    attachmentField.style.gridColumn = '1 / -1';
+    const attachmentLabel = document.createElement('label');
+    attachmentLabel.textContent = 'Anexos (PDF, DOCX, XLSX, JPG ou PNG — até 5 MB cada)';
+    attachmentInput = document.createElement('input');
+    attachmentInput.type = 'file';
+    attachmentInput.name = '_attachments';
+    attachmentInput.multiple = true;
+    attachmentInput.accept = '.pdf,.docx,.xlsx,.jpg,.jpeg,.png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png';
+    attachmentLabel.htmlFor = 'official-documents-attachments';
+    attachmentInput.id = 'official-documents-attachments';
+    attachmentField.append(attachmentLabel, attachmentInput);
+    createForm.appendChild(attachmentField);
+    const hint = document.createElement('small');
+    hint.className = 'muted';
+    hint.textContent = 'Os arquivos serão armazenados no banco ANIT-ADMIN, com acesso protegido pelas permissões institucionais.';
+    attachmentField.appendChild(hint);
+  }
   module.fields.forEach(([name,label,type,required,options]) => {
     const field = document.createElement('div');
     field.className = 'field';
@@ -322,7 +349,11 @@ async function addDataPanel(module) {
         feedback.dataset.kind = 'error';
         return;
       }
+      const attachmentFiles = module.table === 'official_documents'
+        ? [...(attachmentInput?.files || [])].filter(file => file && file.size > 0)
+        : [];
       const payload = Object.fromEntries(new FormData(createForm).entries());
+      delete payload._attachments;
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') delete payload[key];
         if (['amount','version'].includes(key) && payload[key] !== undefined) payload[key] = Number(payload[key]);
@@ -348,20 +379,31 @@ async function addDataPanel(module) {
             throw new Error('O banco identificou seu usuário, mas não reconheceu o perfil Administrador ou Presidente. Solicite a revisão do vínculo entre sua conta e o perfil institucional.');
           }
         }
+        let savedDocumentId = editingId;
         if (editingId) {
           const { error } = await neon.from(module.table).update(payload).eq('id', editingId);
           if (error) throw error;
           feedback.textContent = 'Registro atualizado com sucesso.';
         } else {
           payload.created_by = activeSessionUser.id;
-          const { error } = await neon.from(module.table).insert(payload);
-          if (error) {
-            if (module.table === 'board_members' && /row-level security|policy/i.test(error.message || '')) {
-              throw new Error('O banco não reconheceu sua autorização para gerenciar a diretoria. Confirme que seu perfil está ativo como Administrador ou Presidente e entre novamente na Central.');
+          if (module.table === 'official_documents') {
+            const { data: inserted, error } = await neon.from(module.table).insert(payload).select('id').single();
+            if (error) throw error;
+            savedDocumentId = inserted.id;
+          } else {
+            const { error } = await neon.from(module.table).insert(payload);
+            if (error) {
+              if (module.table === 'board_members' && /row-level security|policy/i.test(error.message || '')) {
+                throw new Error('O banco não reconheceu sua autorização para gerenciar a diretoria. Confirme que seu perfil está ativo como Administrador ou Presidente e entre novamente na Central.');
+              }
+              throw error;
             }
-            throw error;
           }
           feedback.textContent = 'Registro cadastrado com sucesso.';
+        }
+        if (module.table === 'official_documents' && attachmentFiles.length) {
+          await uploadOfficialDocumentAttachments(savedDocumentId, attachmentFiles, activeSessionUser.id);
+          feedback.textContent = 'Documento salvo e anexo(s) armazenado(s) com sucesso.';
         }
         feedback.dataset.kind = 'success';
         editingId = null;
@@ -470,6 +512,101 @@ function canManage(table, role) {
   return (rules[table] || []).includes(role);
 }
 
+const OFFICIAL_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+const OFFICIAL_ATTACHMENT_TYPES = new Map([
+  ['pdf','application/pdf'],
+  ['docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ['jpg','image/jpeg'], ['jpeg','image/jpeg'], ['png','image/png']
+]);
+
+async function uploadOfficialDocumentAttachments(documentId, files, userId) {
+  if (!documentId) throw new Error('Documento não identificado para anexar arquivos.');
+  if (files.length > 10) throw new Error('Envie no máximo 10 anexos por operação.');
+  for (const file of files) {
+    const extension = (file.name.split('.').pop() || '').toLowerCase();
+    const expectedType = OFFICIAL_ATTACHMENT_TYPES.get(extension);
+    if (!expectedType) throw new Error('Formato não permitido: ' + file.name);
+    if (file.size > OFFICIAL_ATTACHMENT_MAX_BYTES) throw new Error('O arquivo ' + file.name + ' ultrapassa o limite de 5 MB.');
+    const buffer = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    const checksum = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,'0')).join('');
+    const hex = [...new Uint8Array(buffer)].map(byte => byte.toString(16).padStart(2,'0')).join('');
+    const safeName = file.name.replace(/[\\/\\0-\\x1f]/g,'_').slice(0,240);
+    const { error } = await neon.from('official_document_attachments').insert({
+      document_id: documentId,
+      file_name: safeName,
+      content_type: expectedType,
+      file_size: file.size,
+      storage_key: documentId + '/' + crypto.randomUUID(),
+      checksum_sha256: checksum,
+      uploaded_by: userId,
+      file_data: '\\\\x' + hex
+    });
+    if (error) throw new Error('Falha ao armazenar ' + safeName + ': ' + error.message);
+  }
+}
+
+async function showOfficialDocumentAttachments(document) {
+  const panel = document.getElementById('data-official_documents');
+  const feedback = panel?.querySelector('.anit-feedback');
+  if (!panel || !feedback) return;
+  feedback.textContent = 'Consultando anexos...';
+  feedback.dataset.kind = 'info';
+  const { data, error } = await neon.from('official_document_attachments')
+    .select('id,file_name,content_type,file_size,created_at,uploaded_by')
+    .eq('document_id', document.id).order('created_at',{ascending:false});
+  if (error) {
+    feedback.textContent = 'Não foi possível consultar anexos: ' + error.message;
+    feedback.dataset.kind = 'error';
+    return;
+  }
+  const area = panel.querySelector('.anit-attachments');
+  area.replaceChildren();
+  const heading = document.createElement('h3');
+  heading.textContent = 'Anexos — ' + document.title;
+  area.appendChild(heading);
+  if (!data?.length) {
+    const empty = document.createElement('p');
+    empty.textContent = 'Este documento ainda não possui anexos.';
+    area.appendChild(empty);
+  }
+  for (const item of data || []) {
+    const line = document.createElement('div');
+    line.className = 'anit-attachment-row';
+    const label = document.createElement('span');
+    label.textContent = item.file_name + ' · ' + (item.file_size / 1024).toFixed(0) + ' KB';
+    const download = document.createElement('button');
+    download.type = 'button'; download.className = 'btn btn-light btn-small'; download.textContent = 'Baixar';
+    download.addEventListener('click', async () => {
+      download.disabled = true;
+      try {
+        const { data: fileRow, error: fileError } = await neon.from('official_document_attachments')
+          .select('file_name,content_type,file_data').eq('id',item.id).single();
+        if (fileError) throw fileError;
+        const raw = fileRow.file_data;
+        if (typeof raw !== 'string' || !raw.startsWith('\\\\x')) throw new Error('Formato binário retornado pelo banco não reconhecido.');
+        const hex = raw.slice(2);
+        const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(pair => parseInt(pair,16)));
+        const url = URL.createObjectURL(new Blob([bytes],{type:fileRow.content_type || 'application/octet-stream'}));
+        const anchor = document.createElement('a');
+        anchor.href = url; anchor.download = fileRow.file_name; anchor.click();
+        URL.revokeObjectURL(url);
+        feedback.textContent = 'Download iniciado.';
+        feedback.dataset.kind = 'success';
+      } catch (error) {
+        feedback.textContent = 'Não foi possível baixar o anexo: ' + error.message;
+        feedback.dataset.kind = 'error';
+      } finally { download.disabled = false; }
+    });
+    line.append(label,download);
+    area.appendChild(line);
+  }
+  feedback.textContent = (data?.length || 0) + ' anexo(s) localizado(s).';
+  feedback.dataset.kind = 'success';
+  area.hidden = false;
+}
+
 async function loadTable(module) {
   const panel = document.getElementById('data-' + module.table);
   if (!panel) return;
@@ -521,6 +658,12 @@ async function loadTable(module) {
         if(deleteError){feedback.textContent='Não foi possível excluir: '+deleteError.message;feedback.dataset.kind='error';return;}
         feedback.textContent='Registro excluído.';feedback.dataset.kind='success';await loadTable(module);
       });
+      if (module.table === 'official_documents') {
+        const attachments = document.createElement('button');
+        attachments.type='button'; attachments.className='btn btn-light btn-small'; attachments.textContent='Anexos';
+        attachments.addEventListener('click',()=>showOfficialDocumentAttachments(row));
+        actions.append(attachments);
+      }
       actions.append(edit,del); tr.appendChild(actions);
     }
     body.appendChild(tr);
