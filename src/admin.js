@@ -166,7 +166,7 @@ function addDataPanel(module) {
   createForm.dataset.mode = 'create';
   const allowedToManage = canManage(module.table, currentProfile.role);
   let editingId = null;
-  if (module.table === 'associates' && allowedToManage) {
+  if (module.table === 'associates' && currentProfile.role === 'administrator') {
     const typesButton = document.createElement('button');
     typesButton.type = 'button';
     typesButton.className = 'btn btn-light btn-small';
@@ -262,17 +262,27 @@ function addDataPanel(module) {
     field.appendChild(input);
     createForm.appendChild(field);
   });
+
+  if (module.table === 'associates') {
+    const category = createForm.elements.namedItem('category');
+    const { data: typeSetting } = await neon.from('system_settings').select('setting_value').eq('setting_key','associate_types').maybeSingle();
+    const configuredTypes = Array.isArray(typeSetting?.setting_value) ? typeSetting.setting_value : null;
+    if (category && configuredTypes?.length) {
+      category.replaceChildren(...configuredTypes.map(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        return option;
+      }));
+    }
+  }
+
   if (allowedToManage) {
     createForm.append(submit, cancel);
     if (module.table === 'associates') createForm.hidden = true;
     createForm.addEventListener('submit', async event => {
       event.preventDefault();
       const feedback = panel.querySelector('.anit-feedback');
-      if (module.table === 'associates' && !editingId) {
-        feedback.textContent = 'Novas filiações devem ser solicitadas pela página pública da ANIT.';
-        feedback.dataset.kind = 'error';
-        return;
-      }
       if (module.table === 'associates' && !editingId) {
         feedback.textContent = 'Novas filiações devem ser solicitadas exclusivamente pela página pública da ANIT.';
         feedback.dataset.kind = 'error';
