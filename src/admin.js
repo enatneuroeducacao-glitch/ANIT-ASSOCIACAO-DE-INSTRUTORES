@@ -150,7 +150,7 @@ function applyRoleVisibility(role) {
   }
 }
 
-function addDataPanel(module) {
+async function addDataPanel(module) {
   const section = document.getElementById(module.section);
   if (!section || document.getElementById('data-' + module.table)) return;
   section.querySelectorAll('.empty,.module-grid,.notice').forEach(node => node.remove());
@@ -671,7 +671,9 @@ async function boot() {
   authGate.hidden = true;
   shell.style.display = 'grid';
   applyRoleVisibility(currentProfile.role);
-  MODULES.filter(module => roleAllowed(module.section, currentProfile.role)).forEach(addDataPanel);
+  for (const module of MODULES.filter(item => roleAllowed(item.section, currentProfile.role))) {
+    await addDataPanel(module);
+  }
   await loadDashboardStats();
   await loadAudit();
   await loadUsersAndPermissions();
