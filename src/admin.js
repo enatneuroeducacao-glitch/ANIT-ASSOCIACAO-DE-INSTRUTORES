@@ -23,7 +23,7 @@ const ROLE_LABELS = {
   treasurer: 'Tesouraria',
   secretary: 'Secretaria',
   director: 'Diretoria',
-  administrator: 'Administrador'
+  administrator: 'Administrador técnico'
 };
 
 const ENUM_LABELS = {
@@ -171,8 +171,20 @@ function clearMessage() {
 }
 
 function roleAllowed(section, role) {
+  // Os cargos estatutários possuem acesso institucional integral.
   if (['president','vice_president'].includes(role)) return true;
-  if (role === 'administrator' && section === 'dashboard') return currentPermissions.has('dashboard.read');
+
+  // O administrador técnico vê somente o painel operacional e o diagnóstico.
+  // A auditoria resumida é carregada dentro do painel técnico.
+  if (role === 'administrator') {
+    if (section === 'dashboard') return currentPermissions.has('dashboard.read');
+    if (section === 'configuracoes') return currentPermissions.has('system.read');
+    return false;
+  }
+
+  // Gestão de usuários é exclusiva da Presidência e Vice-presidência.
+  if (section === 'usuarios') return false;
+
   const key = SECTION_PERMISSION[section];
   return Boolean(key && (currentPermissions.has(key + '.read') || currentPermissions.has(key + '.manage')));
 }
@@ -1358,8 +1370,8 @@ async function loadUsersAndPermissions() {
   if(!section||document.getElementById('anit-users-manager'))return;
   const role=currentProfile.role;
   const top=['president','vice_president'].includes(role);
-  const scopes=top?['associates','board','finance','protocols','documents','legal','institutional','meetings','communications','demands','reports','users']:(role==='treasurer'?['finance']:(role==='secretary'?['associates','demands','documents','protocols','meetings','communications']:[]));
-  const canManageAccess=top||scopes.length>0;
+  // Somente Presidência e Vice-presidência podem visualizar ou administrar usuários.
+  const canManageAccess=top;
   const panel=document.createElement('div');panel.id='anit-users-manager';panel.className='panel anit-data-panel';
   panel.innerHTML=`
     <div class="panel-head"><div><h2>Centro de controle institucional</h2><p class="muted">Gestão de identidades, funções e autorizações individuais.</p></div><button class="btn btn-light" id="anit-control-refresh" type="button">Atualizar</button></div>
