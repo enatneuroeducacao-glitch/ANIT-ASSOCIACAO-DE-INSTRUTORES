@@ -1597,45 +1597,122 @@ async function loadTechnicalPanel() {
   await run();
 }
 
+const PUBLIC_SITE_DEFAULTS = {
+  identity_name:'ANIT', identity_descriptor:'ASSOCIAÇÃO NACIONAL DE INSTRUTORES DE TRÂNSITO',
+  topbar_left:'Representação • Valorização • Desenvolvimento profissional',
+  topbar_right:'Uma voz coletiva para quem ensina a conduzir',
+  hero_eyebrow:'Juntos somos mais fortes',
+  hero_title_before:'Valorizar quem ensina é ',
+  hero_title_highlight:'proteger o futuro',
+  hero_title_after:' do trânsito.',
+  hero_description:'A ANIT nasce para fortalecer a voz dos instrutores de trânsito, defender a valorização profissional e contribuir para uma formação de condutores mais segura, humana e responsável.',
+  hero_primary_cta:'Quero fazer parte', hero_secondary_cta:'Conheça nossa atuação',
+  hero_note:'Representatividade, união e compromisso com a segurança viária.',
+  about_panel_title:'A força da categoria começa com a união.',
+  about_panel_text:'Uma associação construída para ouvir, conectar e representar os instrutores de trânsito.',
+  about_kicker:'Quem somos', about_title:'Uma entidade a serviço dos instrutores.',
+  about_text_1:'A ANIT — Associação Nacional de Instrutores de Trânsito — tem como proposta reunir profissionais, ampliar o diálogo institucional e promover iniciativas que fortaleçam a atividade de instrução de trânsito.',
+  about_text_2:'Queremos contribuir para que a experiência, o conhecimento e a responsabilidade dos instrutores sejam reconhecidos como partes essenciais da segurança viária brasileira.',
+  activity_kicker:'Nossa atuação', activity_title:'Mais apoio. Mais conhecimento. Mais reconhecimento.',
+  activity_description:'Uma agenda de trabalho voltada às necessidades reais dos profissionais e ao desenvolvimento da educação para o trânsito.',
+  contact_title:'Vamos conversar?',
+  contact_description:'Envie sua manifestação de interesse, dúvida ou proposta de parceria. Os campos abaixo ajudam a organizar a mensagem para encaminhamento à equipe responsável.',
+  contact_email:'', contact_phone:'', contact_whatsapp:'',
+  footer_description:'Valorização profissional, formação de qualidade e compromisso com um trânsito mais seguro e humano.',
+  footer_notice:'Site institucional • Informações sujeitas à confirmação oficial da entidade.',
+  seo_title:'ANIT | Associação Nacional de Instrutores de Trânsito',
+  seo_description:'ANIT — Associação Nacional de Instrutores de Trânsito. Representação, valorização profissional, formação e fortalecimento dos instrutores.'
+};
+const PUBLIC_SITE_GROUPS = [
+  {title:'Identidade e cabeçalho',description:'Nome institucional, assinatura e mensagens da faixa superior.',fields:[
+    ['identity_name','Nome / sigla','text'],['identity_descriptor','Descrição abaixo da marca','text'],['topbar_left','Mensagem superior — esquerda','text'],['topbar_right','Mensagem superior — direita','text']
+  ]},
+  {title:'Página inicial',description:'Conteúdo principal exibido no primeiro acesso ao site.',fields:[
+    ['hero_eyebrow','Chamada curta','text'],['hero_title_before','Título — início','text'],['hero_title_highlight','Título — trecho destacado','text'],['hero_title_after','Título — final','text'],['hero_description','Texto de apresentação','textarea'],['hero_primary_cta','Botão principal','text'],['hero_secondary_cta','Botão secundário','text'],['hero_note','Frase complementar','text']
+  ]},
+  {title:'Quem somos',description:'Apresentação institucional e posicionamento da entidade.',fields:[
+    ['about_panel_title','Frase em destaque','text'],['about_panel_text','Texto do quadro de destaque','textarea'],['about_kicker','Identificação da seção','text'],['about_title','Título da seção','text'],['about_text_1','Apresentação — parágrafo 1','textarea'],['about_text_2','Apresentação — parágrafo 2','textarea']
+  ]},
+  {title:'Atuação institucional',description:'Textos introdutórios da seção de atuação.',fields:[
+    ['activity_kicker','Identificação da seção','text'],['activity_title','Título da seção','text'],['activity_description','Descrição da seção','textarea']
+  ]},
+  {title:'Contato e canais oficiais',description:'Informações de contato exibidas no site. Os formulários continuam protegidos e ligados à Central.',fields:[
+    ['contact_title','Título da seção','text'],['contact_description','Texto de apresentação','textarea'],['contact_email','E-mail institucional','email'],['contact_phone','Telefone institucional','tel'],['contact_whatsapp','Link completo do WhatsApp (https://...)','url']
+  ]},
+  {title:'Rodapé e mecanismos de busca',description:'Assinatura final do site e informações exibidas nos resultados de busca.',fields:[
+    ['footer_description','Texto institucional do rodapé','textarea'],['footer_notice','Aviso do rodapé','text'],['seo_title','Título para mecanismos de busca','text'],['seo_description','Descrição para mecanismos de busca','textarea']
+  ]}
+];
 async function loadSettings() {
   if(!['president','vice_president'].includes(currentProfile.role)) return;
-  const canEditSettings=['president','vice_president'].includes(currentProfile.role);
   const section=document.getElementById('configuracoes');
   if(!section || document.getElementById('anit-settings')) return;
   section.querySelectorAll('.panel,.module-grid').forEach(node=>node.remove());
   const panel=document.createElement('div');panel.id='anit-settings';panel.className='panel anit-data-panel';
-  panel.innerHTML='<div class="panel-head"><h2>Configurações institucionais</h2></div>'+(canEditSettings?'<form class="field-grid anit-create-form"><div class="field"><label>Chave da configuração</label><input name="setting_key" required placeholder="ex.: institutional_email"></div><div class="field full"><label>Valor em JSON</label><textarea name="setting_value" rows="5" required placeholder="{&quot;value&quot;:&quot;...&quot;}"></textarea></div><button class="btn btn-primary" type="submit">Salvar configuração</button></form>':'<p class="muted">Acesso de consulta. Somente o Administrador pode alterar parâmetros técnicos.</p>')+'<p class="anit-feedback" role="status"></p><div class="anit-settings-table"></div>';
+  panel.innerHTML='<div class="panel-head"><div><h2>Central de configurações do site público</h2><p class="muted">Edite os conteúdos institucionais e publique as alterações no portal da ANIT.</p></div><a class="btn btn-light" href="./index.html" target="_blank" rel="noopener">Visualizar site ↗</a></div><div class="anit-site-settings-status" role="status">Carregando configurações...</div><form id="anit-public-site-form"></form><div class="anit-settings-actions"><button class="btn btn-primary" type="submit" form="anit-public-site-form">Salvar e publicar alterações</button><button class="btn btn-light" type="button" id="anit-site-reset">Restaurar textos padrão</button></div><p class="anit-feedback" role="status"></p><div class="anit-settings-meta"></div><details class="anit-advanced-settings"><summary>Configurações técnicas em JSON</summary><p class="muted">Área avançada para manutenção. Evite alterar chaves sem orientação técnica.</p><form id="anit-advanced-form" class="field-grid anit-create-form"><div class="field"><label>Chave técnica</label><input name="setting_key" required placeholder="ex.: public_site_extra"></div><div class="field full"><label>Valor em JSON</label><textarea name="setting_value" rows="4" required placeholder="{&quot;value&quot;:&quot;...&quot;}"></textarea></div><button class="btn btn-light" type="submit">Salvar configuração técnica</button></form><div class="anit-settings-table"></div></details>';
   section.appendChild(panel);
-  const form=panel.querySelector('form');
-  form?.addEventListener('submit',async event=>{
-    event.preventDefault();const feedback=panel.querySelector('.anit-feedback');const raw=Object.fromEntries(new FormData(form).entries());
-    let value;try{value=JSON.parse(raw.setting_value);}catch{feedback.textContent='O valor precisa ser um JSON válido.';feedback.dataset.kind='error';return;}
-    const {error}=await neon.from('system_settings').upsert({setting_key:raw.setting_key.trim(),setting_value:value,updated_by:currentUser.id},{onConflict:'setting_key'});
-    if(error){feedback.textContent='Não foi possível salvar: '+error.message;feedback.dataset.kind='error';return;}
-    feedback.textContent='Configuração salva.';feedback.dataset.kind='success';form.reset();await renderSettings(panel);
+  const form=panel.querySelector('#anit-public-site-form');
+  const status=panel.querySelector('.anit-site-settings-status');
+  const feedback=panel.querySelector('.anit-feedback');
+  let saved={...PUBLIC_SITE_DEFAULTS};
+  const {data,error}=await neon.from('system_settings').select('setting_value,updated_at').eq('setting_key','public_site').maybeSingle();
+  if(error){status.textContent='Não foi possível carregar as configurações do site: '+error.message;status.dataset.kind='error';return;}
+  if(data?.setting_value && typeof data.setting_value==='object') saved={...saved,...data.setting_value};
+  PUBLIC_SITE_GROUPS.forEach(group=>{
+    const card=document.createElement('section');card.className='anit-site-settings-group';
+    const heading=document.createElement('div');heading.className='anit-site-settings-heading';
+    const title=document.createElement('h3');title.textContent=group.title;
+    const description=document.createElement('p');description.textContent=group.description;
+    heading.append(title,description);card.append(heading);
+    const grid=document.createElement('div');grid.className='anit-site-settings-grid';
+    group.fields.forEach(([key,label,type])=>{
+      const field=document.createElement('div');field.className='field'+(type==='textarea'?' full':'');
+      const caption=document.createElement('label');caption.htmlFor='site-'+key;caption.textContent=label;
+      const input=type==='textarea'?document.createElement('textarea'):document.createElement('input');
+      input.id='site-'+key;input.name=key;input.type=type==='textarea'?'text':type;
+      if(type==='textarea')input.rows=3;
+      input.value=saved[key]??'';
+      field.append(caption,input);grid.append(field);
+    });
+    card.append(grid);form.append(card);
   });
-  await renderSettings(panel);
+  status.textContent=data?.updated_at?'Última publicação: '+new Date(data.updated_at).toLocaleString('pt-BR'):'Nenhuma personalização salva ainda. O site está usando os textos padrão.';
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();feedback.textContent='';const values={...PUBLIC_SITE_DEFAULTS};
+    PUBLIC_SITE_GROUPS.forEach(group=>group.fields.forEach(([key])=>{values[key]=String(form.elements[key]?.value??'').trim();}));
+    const save=panel.querySelector('button[form="anit-public-site-form"]');
+    save.disabled=true;save.textContent='Publicando...';
+    const {error:saveError}=await neon.from('system_settings').upsert({setting_key:'public_site',setting_value:values,updated_by:currentUser.id},{onConflict:'setting_key'});
+    save.disabled=false;save.textContent='Salvar e publicar alterações';
+    if(saveError){feedback.textContent='Não foi possível publicar: '+saveError.message;feedback.dataset.kind='error';return;}
+    saved=values;feedback.textContent='Configurações salvas. As alterações já estão disponíveis no site público.';feedback.dataset.kind='success';
+    status.textContent='Última publicação: '+new Date().toLocaleString('pt-BR');
+    await renderAdvancedSettings(panel);
+  });
+  panel.querySelector('#anit-site-reset').addEventListener('click',()=>{
+    if(!confirm('Restaurar os textos padrão? Isso substitui as personalizações atuais após clicar em Salvar e publicar.'))return;
+    PUBLIC_SITE_GROUPS.forEach(group=>group.fields.forEach(([key])=>{form.elements[key].value=PUBLIC_SITE_DEFAULTS[key]??'';}));
+    feedback.textContent='Textos padrão carregados no formulário. Clique em Salvar e publicar para aplicar no site.';
+    feedback.dataset.kind='success';
+  });
+  panel.querySelector('#anit-advanced-form').addEventListener('submit',async event=>{
+    event.preventDefault();const raw=Object.fromEntries(new FormData(event.currentTarget).entries());let value;
+    try{value=JSON.parse(raw.setting_value);}catch{feedback.textContent='O valor precisa ser um JSON válido.';feedback.dataset.kind='error';return;}
+    const {error:saveError}=await neon.from('system_settings').upsert({setting_key:raw.setting_key.trim(),setting_value:value,updated_by:currentUser.id},{onConflict:'setting_key'});
+    if(saveError){feedback.textContent='Não foi possível salvar: '+saveError.message;feedback.dataset.kind='error';return;}
+    feedback.textContent='Configuração técnica salva.';feedback.dataset.kind='success';event.currentTarget.reset();await renderAdvancedSettings(panel);
+  });
+  await renderAdvancedSettings(panel);
 }
-async function renderSettings(panel){
-  const form=panel.querySelector('form');
+async function renderAdvancedSettings(panel){
   const wrap=panel.querySelector('.anit-settings-table');
-  const {data,error}=await neon.from('system_settings').select('setting_key,setting_value,updated_at,updated_by').order('setting_key');
-  if(error){wrap.textContent='Não foi possível consultar configurações: '+error.message;return;}
+  const {data,error}=await neon.from('system_settings').select('setting_key,setting_value,updated_at').neq('setting_key','public_site').order('setting_key');
+  if(error){wrap.textContent='Não foi possível consultar as configurações técnicas: '+error.message;return;}
   const table=document.createElement('table');const thead=document.createElement('thead');const hr=document.createElement('tr');
-  ['Chave','Valor','Atualizada em','Ação'].forEach(x=>{const th=document.createElement('th');th.textContent=x;hr.appendChild(th);});thead.appendChild(hr);table.appendChild(thead);
+  ['Chave técnica','Valor','Atualizada em'].forEach(label=>{const th=document.createElement('th');th.textContent=label;hr.append(th);});thead.append(hr);table.append(thead);
   const body=document.createElement('tbody');
-  (data||[]).forEach(item=>{const tr=document.createElement('tr');[item.setting_key,JSON.stringify(item.setting_value),new Date(item.updated_at).toLocaleString('pt-BR')].forEach(value=>{const td=document.createElement('td');td.textContent=value;tr.appendChild(td);});
-    const action=document.createElement('td');
-    if(form){
-      const edit=document.createElement('button');edit.type='button';edit.className='btn btn-light btn-small';edit.textContent='Carregar';
-      edit.addEventListener('click',()=>{form.elements.setting_key.value=item.setting_key;form.elements.setting_value.value=JSON.stringify(item.setting_value,null,2);form.scrollIntoView({behavior:'smooth',block:'center'});});
-      const del=document.createElement('button');del.type='button';del.className='btn btn-danger btn-small';del.textContent='Excluir';
-      del.addEventListener('click',async()=>{if(!confirm('Excluir esta configuração?'))return;const {error}=await neon.from('system_settings').delete().eq('setting_key',item.setting_key);if(error){alert(error.message);return;}await renderSettings(panel);});
-      action.append(edit,del);
-    }else{action.textContent='Consulta';}
-    tr.appendChild(action);body.appendChild(tr);
-  });
-  table.appendChild(body);const frame=document.createElement('div');frame.className='table-wrap';frame.appendChild(table);wrap.replaceChildren(frame);
+  (data||[]).forEach(item=>{const tr=document.createElement('tr');[item.setting_key,JSON.stringify(item.setting_value),new Date(item.updated_at).toLocaleString('pt-BR')].forEach(value=>{const td=document.createElement('td');td.textContent=value;tr.append(td);});body.append(tr);});
+  table.append(body);const frame=document.createElement('div');frame.className='table-wrap';frame.append(table);wrap.replaceChildren(frame);
 }
 async function boot() {
   if (!AUTH_URL || !DATA_API_URL) {
