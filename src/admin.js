@@ -155,6 +155,9 @@ const MODULES = [
 let neon;
 let currentUser;
 let currentProfile;
+let currentPermissions = new Set();
+const SECTION_PERMISSION = {dashboard:'dashboard',associados:'associates',diretoria:'board',financeiro:'finance',secretaria:'protocols',documentos:'documents',juridico:'legal',representacao:'institutional',reunioes:'meetings',comunicacao:'communications',demandas:'demands',relatorios:'reports',usuarios:'users'};
+const TABLE_PERMISSION = {associates:'associates',board_members:'board',financial_entries:'finance',protocols:'protocols',official_documents:'documents',legal_cases:'legal',legal_references:'legal',institutional_relations:'institutional',meetings:'meetings',meeting_attendees:'meetings',meeting_action_items:'meetings',meeting_attachments:'meetings',meeting_updates:'meetings',communications:'communications',member_demands:'demands'};
 
 function showMessage(text, kind = 'error') {
   message.textContent = text;
@@ -168,14 +171,19 @@ function clearMessage() {
 }
 
 function roleAllowed(section, role) {
-  if (role === 'administrator' || role === 'president') return true;
-  const access = {
-    vice_president: ['dashboard','associados','diretoria','financeiro','secretaria','documentos','juridico','representacao','reunioes','comunicacao','demandas','relatorios'],
-    treasurer: ['dashboard','associados','diretoria','financeiro','documentos','relatorios'],
-    secretary: ['dashboard','associados','diretoria','secretaria','documentos','reunioes','comunicacao','demandas','relatorios'],
-    director: ['dashboard','associados','diretoria','financeiro','secretaria','documentos','juridico','representacao','reunioes','demandas','relatorios']
-  };
-  return (access[role] || []).includes(section);
+  if (['administrator','president','vice_president'].includes(role)) return true;
+  const key = SECTION_PERMISSION[section];
+  return Boolean(key && (currentPermissions.has(key + '.read') || currentPermissions.has(key + '.manage') || currentPermissions.has('*')));
+}
+function canManage(table) {
+  if (['administrator','president','vice_president'].includes(currentProfile?.role)) return true;
+  const key = TABLE_PERMISSION[table];
+  return Boolean(key && (currentPermissions.has(key + '.manage') || currentPermissions.has('users.manage')));
+}
+async function loadCurrentPermissions() {
+  const {data,error}=await neon.rpc('current_permissions');
+  if(error) throw new Error('Não foi possível carregar as permissões efetivas: '+error.message);
+  currentPermissions=new Set(Array.isArray(data)?data:(data?.current_permissions||[]));
 }
 
 function applyRoleVisibility(role) {
@@ -235,7 +243,7 @@ async function addDataPanel(module) {
   const createForm = document.createElement('form');
   createForm.className = 'field-grid anit-create-form';
   createForm.dataset.mode = 'create';
-  const allowedToManage = canManage(module.table, currentProfile.role);
+  const allowedToManage = canManage(module.table);
   let editingId = null;
   let editingOriginalStatus = null;
   if (module.table === 'associates' && currentProfile.role === 'administrator') {
@@ -635,22 +643,7 @@ async function addDataPanel(module) {
   };
 }
 
-function canManage(table, role) {
-  if (role === 'administrator' || role === 'president') return true;
-  const rules = {
-    associates: ['vice_president','secretary'],
-    financial_entries: ['treasurer'],
-    protocols: ['vice_president','secretary'],
-    official_documents: ['secretary'],
-    board_members: [],
-    legal_cases: [],
-    institutional_relations: [],
-    meetings: ['vice_president','secretary'],
-    communications: ['secretary'],
-    member_demands: ['vice_president','secretary']
-  };
-  return (rules[table] || []).includes(role);
-}
+// As permissões de gravação são carregadas do banco e verificadas novamente por RLS.
 
 const OFFICIAL_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
 const OFFICIAL_ATTACHMENT_TYPES = new Map([
@@ -1356,71 +1349,64 @@ async function loadAudit() {
 
 
 async function loadUsersAndPermissions() {
-  if (!['administrator','president'].includes(currentProfile.role)) return;
-  const canAdministerUsers=currentProfile.role==='administrator';
   const section=document.getElementById('usuarios');
-  if(!section || document.getElementById('anit-users-manager')) return;
-  section.querySelectorAll('.notice,.role-list').forEach(node=>node.remove());
-  const panel=document.createElement('div');
-  panel.id='anit-users-manager';panel.className='panel anit-data-panel';
-  panel.innerHTML='<div class="panel-head"><h2>Gerenciar contas e perfis</h2></div><p class="muted">A conta precisa existir primeiro no Neon Auth. Depois, informe o UUID do usuário para atribuir ou atualizar seu perfil institucional. Não compartilhe senhas.</p><form class="field-grid anit-create-form" id="anit-user-form"><div class="field"><label>UUID da conta Neon Auth</label><input name="user_id" required placeholder="UUID do usuário"></div><div class="field"><label>Nome completo</label><input name="full_name" required></div><div class="field"><label>Função institucional</label><select name="role"><option value="president">Presidência</option><option value="vice_president">Vice-presidência</option><option value="treasurer">Tesouraria</option><option value="secretary">Secretaria</option><option value="director">Diretoria</option><option value="administrator">Administrador</option></select></div><div class="field"><label>Situação</label><select name="active"><option value="true">Ativo</option><option value="false">Inativo</option></select></div><button class="btn btn-primary" type="submit">Salvar perfil</button></form><p class="anit-feedback" role="status"></p><div class="anit-users-table"></div>';
-  section.appendChild(panel);
+  if(!section||document.getElementById('anit-users-manager'))return;
+  const role=currentProfile.role;
+  const top=['administrator','president','vice_president'].includes(role);
+  const scopes=top?['associates','board','finance','protocols','documents','legal','institutional','meetings','communications','demands','reports','users']:(role==='treasurer'?['finance']:(role==='secretary'?['associates','demands','documents','protocols','meetings','communications']:[]));
+  const panel=document.createElement('div');panel.id='anit-users-manager';panel.className='panel anit-data-panel';
+  panel.innerHTML=`
+    <div class="panel-head"><div><h2>Centro de controle institucional</h2><p class="muted">Gestão de identidades, funções e autorizações individuais.</p></div><button class="btn btn-light" id="anit-control-refresh" type="button">Atualizar</button></div>
+    <div class="anit-control-stats"></div>
+    <div class="panel"><div class="panel-head"><h3>Meu cadastro</h3><span class="muted">Cada usuário pode alterar seu próprio nome.</span></div><form id="anit-own-profile" class="field-grid"><div class="field"><label>Nome completo</label><input name="full_name" required minlength="3"></div><button class="btn btn-primary">Salvar meus dados</button></form><p id="anit-own-feedback" class="anit-feedback"></p></div>
+    ${top?`<div class="panel"><div class="panel-head"><h3>Cadastro de perfil institucional</h3><span class="muted">Somente Presidência e Vice-presidência atribuem funções e ativam contas.</span></div><form id="anit-user-form" class="field-grid"><div class="field"><label>UUID da conta Neon Auth</label><input name="user_id" required placeholder="UUID da conta existente"></div><div class="field"><label>Nome completo</label><input name="full_name" required></div><div class="field"><label>Função</label><select name="role"><option value="president">Presidência</option><option value="vice_president">Vice-presidência</option><option value="treasurer">Tesouraria</option><option value="secretary">Secretaria</option><option value="director">Diretoria</option><option value="administrator">Administrador técnico</option></select></div><div class="field"><label>Situação</label><select name="active"><option value="true">Ativo</option><option value="false">Inativo</option></select></div><button class="btn btn-primary">Salvar perfil</button></form><p id="anit-user-feedback" class="anit-feedback"></p></div>`:''}
+    <div class="panel"><div class="panel-head"><div><h3>Usuários cadastrados</h3><p class="muted">Escolha uma pessoa para administrar os acessos sob sua responsabilidade.</p></div><input id="anit-user-search" class="anit-search" placeholder="Buscar por nome ou UUID"></div><div class="anit-users-table"></div></div>
+    <div class="panel"><div class="panel-head"><h3>Permissões individuais</h3></div><div id="anit-user-permission-editor"><p class="muted">Selecione “Gerenciar acessos” em um usuário.</p></div></div>
+    <div class="panel"><h3>Regras de governança</h3><ul class="anit-security-list"><li>Presidente e Vice-presidente têm controle integral.</li><li>Tesouraria administra acessos do Financeiro.</li><li>Secretaria administra Associados, Demandas, Documentos, Protocolos, Reuniões e Comunicação.</li><li>Demais usuários podem alterar o próprio nome, sem elevar privilégios.</li><li>As permissões são verificadas no banco de dados, não apenas na interface.</li></ul></div>`;
+  section.append(panel);
+  const own=panel.querySelector('#anit-own-profile');own.elements.full_name.value=currentProfile.full_name||currentUser.name||'';
+  own.addEventListener('submit',async e=>{e.preventDefault();const fb=panel.querySelector('#anit-own-feedback');const {error}=await neon.rpc('update_own_profile',{p_full_name:own.elements.full_name.value.trim()});fb.textContent=error?'Falha: '+error.message:'Cadastro atualizado.';fb.dataset.kind=error?'error':'success';if(!error)currentProfile.full_name=own.elements.full_name.value.trim();});
   const userForm=panel.querySelector('#anit-user-form');
-  userForm?.addEventListener('submit',async event=>{
-    event.preventDefault();
-    const raw=Object.fromEntries(new FormData(userForm).entries());
-    const feedback=panel.querySelector('.anit-feedback');
-    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw.user_id)){
-      feedback.textContent='Informe um UUID válido da conta criada no Neon Auth.';feedback.dataset.kind='error';return;
-    }
-    if(raw.user_id===currentUser.id && raw.role!=='administrator'){
-      feedback.textContent='Por segurança, não é permitido remover o perfil de administrador da sessão atual.';feedback.dataset.kind='error';return;
-    }
-    const payload={user_id:raw.user_id,full_name:raw.full_name.trim(),role:raw.role,active:raw.active==='true'};
-    const {error}=await neon.from('user_profiles').upsert(payload,{onConflict:'user_id'});
-    if(error){feedback.textContent='Não foi possível salvar o perfil: '+error.message;feedback.dataset.kind='error';return;}
-    feedback.textContent='Perfil salvo. O usuário deverá entrar novamente para carregar as novas permissões.';feedback.dataset.kind='success';userForm.reset();await renderUsers();
-  });
+  if(userForm)userForm.addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(userForm));const fb=panel.querySelector('#anit-user-feedback');if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw.user_id)){fb.textContent='UUID inválido.';fb.dataset.kind='error';return;}const {error}=await neon.from('user_profiles').upsert({user_id:raw.user_id,full_name:raw.full_name.trim(),role:raw.role,active:raw.active==='true'},{onConflict:'user_id'});fb.textContent=error?'Falha ao salvar: '+error.message:'Perfil salvo. O usuário deverá entrar novamente.';fb.dataset.kind=error?'error':'success';if(!error){userForm.reset();await renderUsers();}});
+  const catalog=[
+    ['associates.read','Consultar associados'],['associates.manage','Gerenciar associados'],
+    ['board.read','Consultar diretoria e mandatos'],['board.manage','Gerenciar diretoria e mandatos'],
+    ['finance.read','Consultar financeiro'],['finance.manage','Gerenciar financeiro'],
+    ['protocols.read','Consultar secretaria e protocolos'],['protocols.manage','Gerenciar protocolos'],
+    ['documents.read','Consultar documentos oficiais'],['documents.manage','Gerenciar documentos'],
+    ['legal.read','Consultar jurídico e legislação'],['legal.manage','Gerenciar jurídico'],
+    ['institutional.read','Consultar representação institucional'],['institutional.manage','Gerenciar representação'],
+    ['meetings.read','Consultar reuniões e agenda'],['meetings.manage','Gerenciar reuniões'],
+    ['communications.read','Consultar comunicação oficial'],['communications.manage','Gerenciar comunicação'],
+    ['demands.read','Consultar demandas dos associados'],['demands.manage','Gerenciar demandas'],
+    ['reports.read','Consultar relatórios'],['reports.manage','Gerenciar relatórios']
+  ];
+  const canGrant=key=>top||(role==='treasurer'&&key.startsWith('finance.'))||(role==='secretary'&&['associates.','demands.','documents.','protocols.','meetings.','communications.'].some(p=>key.startsWith(p)));
+  let users=[];
   async function renderUsers(){
-    const wrap=panel.querySelector('.anit-users-table');
-    const {data,error}=await neon.from('user_profiles').select('user_id,full_name,role,active,created_at').order('created_at',{ascending:false}).limit(200);
-    if(error){wrap.textContent='Não foi possível consultar perfis: '+error.message;return;}
-    const table=document.createElement('table');
-    const thead=document.createElement('thead');const hr=document.createElement('tr');
-    ['Nome','UUID','Função','Situação','Criado em','Ação'].forEach(x=>{const th=document.createElement('th');th.textContent=x;hr.appendChild(th);});
-    thead.appendChild(hr);table.appendChild(thead);
-    const tbody=document.createElement('tbody');
-    (data||[]).forEach(user=>{
-      const tr=document.createElement('tr');
-      [user.full_name,user.user_id,ROLE_LABELS[user.role]||user.role,user.active?'Ativo':'Inativo',new Date(user.created_at).toLocaleDateString('pt-BR')].forEach(value=>{const td=document.createElement('td');td.textContent=value||'—';tr.appendChild(td);});
-      const action=document.createElement('td');if(canAdministerUsers){const edit=document.createElement('button');edit.type='button';edit.className='btn btn-light btn-small';edit.textContent='Editar';edit.addEventListener('click',()=>{userForm.elements.user_id.value=user.user_id;userForm.elements.full_name.value=user.full_name;userForm.elements.role.value=user.role;userForm.elements.active.value=String(user.active);userForm.scrollIntoView({behavior:'smooth',block:'center'});});action.appendChild(edit);}else{action.textContent='Consulta';}tr.appendChild(action);tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);const frame=document.createElement('div');frame.className='table-wrap';frame.appendChild(table);wrap.replaceChildren(frame);
+    const wrap=panel.querySelector('.anit-users-table');wrap.textContent='Carregando usuários...';
+    const {data,error}=await neon.from('user_profiles').select('user_id,full_name,role,active,created_at').order('full_name').limit(500);
+    if(error){wrap.textContent='Não foi possível consultar usuários: '+error.message;return;}
+    users=data||[];const stats=panel.querySelector('.anit-control-stats');stats.replaceChildren();
+    [['Usuários',users.length],['Ativos',users.filter(x=>x.active).length],['Inativos',users.filter(x=>!x.active).length],['Sua função',ROLE_LABELS[role]||role]].forEach(([label,value])=>{const card=document.createElement('div');card.className='anit-control-stat';const s=document.createElement('span');s.textContent=label;const b=document.createElement('strong');b.textContent=value;card.append(s,b);stats.append(card);});
+    const q=(panel.querySelector('#anit-user-search').value||'').toLocaleLowerCase('pt-BR');const table=document.createElement('table');const head=document.createElement('tr');['Nome','Função','Situação','Cadastro','Ações'].forEach(x=>{const th=document.createElement('th');th.textContent=x;head.append(th);});const thead=document.createElement('thead');thead.append(head);table.append(thead);const body=document.createElement('tbody');
+    users.filter(u=>(u.full_name+' '+u.user_id).toLocaleLowerCase('pt-BR').includes(q)).forEach(u=>{const tr=document.createElement('tr');[u.full_name,ROLE_LABELS[u.role]||u.role,u.active?'Ativo':'Inativo',new Date(u.created_at).toLocaleDateString('pt-BR')].forEach(v=>{const td=document.createElement('td');td.textContent=v||'—';tr.append(td);});const td=document.createElement('td');const btn=document.createElement('button');btn.type='button';btn.className='btn btn-light btn-small';btn.textContent='Gerenciar acessos';btn.addEventListener('click',()=>renderPermissionEditor(u));td.append(btn);if(top&&u.user_id!==currentUser.id){const edit=document.createElement('button');edit.type='button';edit.className='btn btn-light btn-small';edit.textContent='Editar perfil';edit.addEventListener('click',()=>{userForm.elements.user_id.value=u.user_id;userForm.elements.full_name.value=u.full_name;userForm.elements.role.value=u.role;userForm.elements.active.value=String(u.active);userForm.scrollIntoView({behavior:'smooth',block:'center'});});td.append(edit);}tr.append(td);body.append(tr);});
+    table.append(body);const frame=document.createElement('div');frame.className='table-wrap';frame.append(table);wrap.replaceChildren(frame);
   }
+  async function renderPermissionEditor(user){
+    const editor=panel.querySelector('#anit-user-permission-editor');editor.replaceChildren();const title=document.createElement('h4');title.textContent='Acessos de '+user.full_name+' — '+(ROLE_LABELS[user.role]||user.role);editor.append(title);
+    if(['president','vice_president','administrator'].includes(user.role)&&!top){const note=document.createElement('p');note.textContent='Perfis de controle institucional não podem ser alterados por responsáveis setoriais.';editor.append(note);return;}
+    const {data:overrides,error}=await neon.from('user_permissions').select('permission_key,allowed').eq('user_id',user.user_id);
+    if(error){const p=document.createElement('p');p.textContent='Não foi possível consultar liberações individuais: '+error.message;editor.append(p);return;}
+    const {data:defaults}=await neon.from('role_permissions').select('permission_key,allowed').eq('role',user.role);
+    const effective=new Map((defaults||[]).map(x=>[x.permission_key,x.allowed]));(overrides||[]).forEach(x=>effective.set(x.permission_key,x.allowed));
+    const grid=document.createElement('div');grid.className='anit-permission-grid';
+    catalog.filter(([key])=>canGrant(key)).forEach(([key,label])=>{const row=document.createElement('label');row.className='anit-permission-item';const span=document.createElement('span');span.textContent=label;const check=document.createElement('input');check.type='checkbox';check.checked=effective.get(key)===true;check.addEventListener('change',async()=>{check.disabled=true;const {error:saveError}=await neon.rpc('set_user_permission',{p_user_id:user.user_id,p_permission_key:key,p_allowed:check.checked});check.disabled=false;if(saveError){check.checked=!check.checked;window.alert('Não foi possível alterar: '+saveError.message);}});row.append(span,check);grid.append(row);});
+    editor.append(grid);const note=document.createElement('p');note.className='muted';note.textContent='As alterações individuais são gravadas no banco e aplicadas às políticas de acesso. A revogação bloqueia também a operação pela API.';editor.append(note);
+  }
+  panel.querySelector('#anit-user-search').addEventListener('input',renderUsers);
+  panel.querySelector('#anit-control-refresh').addEventListener('click',async()=>{await loadCurrentPermissions();await renderUsers();});
   await renderUsers();
-
-  const permissionsPanel=document.createElement('div');permissionsPanel.className='panel anit-data-panel';
-  permissionsPanel.innerHTML='<div class="panel-head"><h2>Matriz de permissões</h2><span class="muted">Alterações aplicadas no banco</span></div><div class="anit-permissions-table"></div>';
-  section.appendChild(permissionsPanel);
-  const permissionsWrap=permissionsPanel.querySelector('.anit-permissions-table');
-  const {data:permissions,error:permissionsError}=await neon.from('role_permissions').select('id,role,permission_key,allowed').order('role').limit(300);
-  if(permissionsError){permissionsWrap.textContent='Matriz indisponível: '+permissionsError.message;return;}
-  const table=document.createElement('table');const thead=document.createElement('thead');const hr=document.createElement('tr');
-  ['Função','Permissão','Liberada','Ação'].forEach(x=>{const th=document.createElement('th');th.textContent=x;hr.appendChild(th);});thead.appendChild(hr);table.appendChild(thead);
-  const tbody=document.createElement('tbody');
-  (permissions||[]).forEach(item=>{
-    const tr=document.createElement('tr');
-    [ROLE_LABELS[item.role]||item.role,item.permission_key,item.allowed?'Sim':'Não'].forEach(value=>{const td=document.createElement('td');td.textContent=value;tr.appendChild(td);});
-    const action=document.createElement('td');const toggle=document.createElement('button');toggle.type='button';toggle.className='btn btn-light btn-small';toggle.textContent=item.allowed?'Revogar':'Liberar';
-    toggle.addEventListener('click',async()=>{
-      if(item.role==='administrator'&&item.permission_key==='*'&&item.allowed){window.alert('A permissão global do administrador não pode ser revogada por esta tela.');return;}
-      const {error}=await neon.from('role_permissions').update({allowed:!item.allowed}).eq('id',item.id);
-      if(error){window.alert('Não foi possível alterar: '+error.message);return;}
-      item.allowed=!item.allowed;toggle.textContent=item.allowed?'Revogar':'Liberar';tr.children[2].textContent=item.allowed?'Sim':'Não';
-    });
-    if(currentProfile.role==='administrator') action.appendChild(toggle); else action.textContent='Consulta';tr.appendChild(action);tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);const frame=document.createElement('div');frame.className='table-wrap';frame.appendChild(table);permissionsWrap.replaceChildren(frame);
 }
 
 async function loadReports() {
@@ -1533,6 +1519,7 @@ async function boot() {
   }
   authGate.hidden = true;
   shell.style.display = 'grid';
+  try { await loadCurrentPermissions(); } catch (permissionError) { showMessage(permissionError.message); authGate.hidden=false; shell.style.display='none'; return; }
   applyRoleVisibility(currentProfile.role);
   for (const module of MODULES.filter(item => roleAllowed(item.section, currentProfile.role))) {
     await addDataPanel(module);
@@ -1541,7 +1528,7 @@ async function boot() {
   await loadAudit();
   await loadUsersAndPermissions();
   await loadReports();
-  await loadSettings();
+  if (['administrator','president','vice_president'].includes(currentProfile.role)) await loadSettings();
 }
 
 form?.addEventListener('submit', async event => {
