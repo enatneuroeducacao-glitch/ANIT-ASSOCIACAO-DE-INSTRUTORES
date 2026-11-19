@@ -1473,6 +1473,7 @@ async function loadUsersAndPermissions() {
       const link=new URL('./activate.html',window.location.href);
       link.searchParams.set('token',invite.invite_token);
       link.searchParams.set('email',email);
+      link.searchParams.set('name',fullName);
       const heading=document.createElement('strong');heading.textContent='Convite emitido com sucesso';
       const note=document.createElement('p');note.textContent='Compartilhe este link com '+fullName+'. Ele deverá confirmar o e-mail, criar a própria senha e concluir a ativação em até 14 dias.';
       const linkField=document.createElement('input');linkField.type='text';linkField.readOnly=true;linkField.value=link.toString();linkField.style.width='100%';
