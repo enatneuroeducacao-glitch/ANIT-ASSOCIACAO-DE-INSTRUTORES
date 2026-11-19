@@ -34,7 +34,33 @@
 
 
 @media(max-width:900px){.menu-toggle{display:block}.navlinks{display:none}.navlinks.open{position:absolute;z-index:50;top:70px;left:0;right:0;background:#fff;border-bottom:1px solid var(--line);padding:16px 22px;display:flex;flex-direction:column;align-items:stretch;gap:10px;max-height:calc(100vh - 80px);overflow-y:auto}.navlinks.open a.nav-home{display:block}.navlinks.open .nav-group{width:100%;border-bottom:1px solid var(--line);padding-bottom:7px}.navlinks.open .nav-group>summary{display:flex}.navlinks.open .nav-dropdown{position:static;box-shadow:none;border:0;border-left:2px solid var(--gold);border-radius:0;margin:4px 0 4px 8px;padding:4px 8px;min-width:0;background:#f7f9fc}.navlinks.open .nav-dropdown a{display:block;padding:9px 12px}.navlinks.open .restricted-link{display:inline-flex;align-self:flex-start}.navlinks.open .btn{display:inline-flex;align-self:flex-start}}
-.anit-brand-logo{display:block;width:100%;height:100%;object-fit:contain}</style>
+.anit-brand-logo{display:block;width:100%;height:100%;object-fit:contain}
+/* Formulários institucionais: hierarquia visual e orientação dos campos */
+.contact-box{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.10);box-shadow:0 22px 55px rgba(7,25,47,.16)}
+.contact-box:before{content:"";position:absolute;left:0;top:0;width:100%;height:5px;background:linear-gradient(90deg,#f5b83d,#ffda82)}
+.contact-box h3{font-size:clamp(1.35rem,2vw,1.65rem);letter-spacing:-.02em;margin-bottom:8px}
+.contact-box>p{line-height:1.6;margin-bottom:22px}
+.contact-box .form-guide{display:flex;align-items:flex-start;gap:12px;padding:14px 15px;margin:18px 0 22px;border:1px solid rgba(255,255,255,.16);border-radius:13px;background:rgba(255,255,255,.07)}
+.contact-box .form-guide>span{display:grid;place-items:center;flex:0 0 32px;height:32px;border-radius:9px;background:rgba(245,184,61,.17);color:#ffd16d;font-size:1.05rem}
+.contact-box .form-guide strong{display:block;color:#fff;font-size:.92rem;margin:1px 0 3px}
+.contact-box .form-guide p{font-size:.82rem;line-height:1.5;color:#cbd9e8;margin:0}
+.contact-box .form{gap:17px 16px}
+.contact-box .field{min-width:0}
+.contact-box .field label{color:#f3f7fc;font-size:.84rem;font-weight:700;letter-spacing:.01em}
+.contact-box .field input,.contact-box .field select,.contact-box .field textarea{min-height:48px;border:1px solid #d5e0eb;border-radius:10px;padding:12px 14px;background:#fff;color:#152f4c;box-shadow:0 2px 5px rgba(0,0,0,.04);transition:border-color .18s,box-shadow .18s}
+.contact-box .field textarea{min-height:128px}
+.contact-box .field input::placeholder,.contact-box .field textarea::placeholder{color:#8493a5}
+.contact-box .field input:focus,.contact-box .field select:focus,.contact-box .field textarea:focus{outline:none;border-color:#f5bd4e;box-shadow:0 0 0 3px rgba(245,189,78,.2)}
+.contact-box .field label:has(input[type=checkbox]){display:flex;gap:10px;align-items:flex-start;color:#dce7f2;line-height:1.5;font-size:.82rem;font-weight:500}
+.contact-box .field input[type=checkbox]{flex:0 0 17px;width:17px;min-height:17px;height:17px;margin:2px 0 0;accent-color:#f5b83d}
+.contact-box .btn-primary{width:100%;min-height:50px;border-radius:11px;font-weight:800;box-shadow:0 7px 18px rgba(245,184,61,.16)}
+.contact-box .note{margin:16px 0 0;padding-top:14px;border-top:1px solid rgba(255,255,255,.14);line-height:1.55;color:#bdcddd}
+.contact-grid>div:first-child .small-note{display:none}
+#associar .contact-box{max-width:900px;margin:28px auto 0}
+#associar .steps{margin-bottom:26px}
+#associar .steps .step{border:1px solid #e5ebf2;border-top:3px solid #f5b83d;border-radius:0 0 14px 14px;box-shadow:0 8px 24px rgba(11,37,69,.035)}
+@media(max-width:720px){.contact-grid{grid-template-columns:1fr;gap:24px}.contact-box{padding:22px}.contact-box .form{grid-template-columns:1fr}.contact-box .field.full{grid-column:auto}#associar .steps{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
 <div class="topbar"><div class="container"><span>Representação • Valorização • Desenvolvimento profissional</span><span>Uma voz coletiva para quem ensina a conduzir</span></div></div>
@@ -69,14 +95,14 @@
 <div class="contact-box" style="max-width:900px;margin:28px auto 0">
 <h3>Solicitação de filiação</h3>
 <p>Preencha seus dados profissionais. A equipe da ANIT analisará a solicitação e entrará em contato pelos canais informados.</p>
-<form class="form" id="membershipForm">
-<div class="field"><label for="memberName">Nome completo *</label><input id="memberName" name="full_name" autocomplete="name" maxlength="160" required></div>
-<div class="field"><label for="memberEmail">E-mail *</label><input id="memberEmail" name="email" type="email" autocomplete="email" maxlength="254" required></div>
-<div class="field"><label for="memberPhone">Telefone/WhatsApp *</label><input id="memberPhone" name="phone" type="tel" autocomplete="tel" maxlength="30" required></div>
-<div class="field"><label for="memberCity">Cidade *</label><input id="memberCity" name="city" maxlength="100" required></div>
-<div class="field"><label for="memberState">UF *</label><select id="memberState" name="state" required><option value="">Selecione</option><option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option><option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option><option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option><option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option><option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option><option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option></select></div>
-<div class="field"><label for="memberCategory">Categoria profissional *</label><select id="memberCategory" name="category" required><option value="">Selecione</option><option>Instrutor de trânsito autônomo</option><option>Instrutor de trânsito vinculado a CFC</option><option>Diretor de ensino ou geral de CFC</option><option>Outro profissional da área de trânsito</option></select></div>
-<div class="field full"><label for="memberRegistration">Registro profissional (se houver)</label><input id="memberRegistration" name="professional_registration" maxlength="100"></div>
+<div class="form-guide"><span aria-hidden="true">✦</span><div><strong>Seus dados para cadastro</strong><p>Informe seus dados de contato, localização e categoria profissional. Os campos com * são obrigatórios.</p></div></div>\n<form class="form" id="membershipForm">
+<div class="field"><label for="memberName">Nome completo *</label><input id="memberName" name="full_name" autocomplete="name" maxlength="160" required placeholder="Digite seu nome completo"></div>
+<div class="field"><label for="memberEmail">E-mail *</label><input id="memberEmail" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com"></div>
+<div class="field"><label for="memberPhone">Telefone/WhatsApp *</label><input id="memberPhone" name="phone" type="tel" autocomplete="tel" maxlength="30" required placeholder="(00) 00000-0000"></div>
+<div class="field"><label for="memberCity">Cidade *</label><input id="memberCity" name="city" maxlength="100" required placeholder="Sua cidade"></div>
+<div class="field"><label for="memberState">UF *</label><select id="memberState" name="state" required aria-label="Selecione sua unidade federativa"><option value="">Selecione</option><option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option><option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option><option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option><option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option><option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option><option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option></select></div>
+<div class="field"><label for="memberCategory">Categoria profissional *</label><select id="memberCategory" name="category" required aria-label="Selecione sua categoria profissional"><option value="">Selecione</option><option>Instrutor de trânsito autônomo</option><option>Instrutor de trânsito vinculado a CFC</option><option>Diretor de ensino ou geral de CFC</option><option>Outro profissional da área de trânsito</option></select></div>
+<div class="field full"><label for="memberRegistration">Registro profissional (se houver)</label><input id="memberRegistration" name="professional_registration" maxlength="100" placeholder="Número do registro, se possuir"></div>
 <div class="field full" style="position:absolute;left:-10000px" aria-hidden="true"><label for="memberWebsite">Não preencher</label><input id="memberWebsite" name="website" tabindex="-1" autocomplete="off"></div>
 <div class="field full"><label style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" id="memberConsent" required style="width:auto;margin-top:5px"> Autorizo o uso dos dados informados para análise desta solicitação de filiação e contato pela ANIT. *</label></div>
 <div class="field full"><button class="btn btn-primary" type="submit">Enviar solicitação de filiação →</button></div>
@@ -91,7 +117,7 @@
 <details><summary>A ANIT oferece cursos ou assessoria jurídica?</summary><p>Este site apresenta as áreas de atuação propostas. A oferta de cursos, assessoria ou outros serviços só deve ser considerada confirmada quando houver divulgação oficial dos respectivos programas e condições.</p></details>
 <details><summary>Como posso sugerir uma pauta ou apresentar uma demanda?</summary><p>Use o formulário de contato abaixo para descrever sua sugestão. O canal definitivo de recebimento e resposta deverá ser configurado pela administração da associação.</p></details>
 </div></div></section>
-<section class="section" id="contato"><div class="container contact-grid"><div><span class="kicker">Contato</span><h2>Vamos conversar?</h2><p>Envie sua manifestação de interesse, dúvida ou proposta de parceria. Os campos abaixo ajudam a organizar a mensagem para encaminhamento à equipe responsável.</p><div class="small-note">Antes de publicar o site oficialmente, configure o e-mail institucional, telefone/WhatsApp e o canal de recebimento das mensagens.</div></div><div class="contact-box"><h3>Fale com a ANIT</h3><p>Preencha os dados para preparar sua mensagem de contato.</p><form class="form" id="contactForm">
+<section class="section" id="contato"><div class="container contact-grid"><div><span class="kicker">Contato</span><h2>Vamos conversar?</h2><p>Escolha o assunto e conte como podemos ajudar. Nossa equipe receberá sua mensagem para análise e retorno.</p></div><div class="contact-box"><h3>Fale com a ANIT</h3><p>Preencha os dados para preparar sua mensagem de contato.</p><div class="form-guide"><span aria-hidden="true">✉</span><div><strong>Preencha seus dados</strong><p>Identifique-se, selecione o assunto e descreva sua mensagem. Os campos com * são obrigatórios.</p></div></div><form class="form" id="contactForm">
 <div class="field"><label for="nome">Nome completo *</label><input id="nome" name="nome" autocomplete="name" required placeholder="Seu nome"></div>
 <div class="field"><label for="email">E-mail *</label><input id="email" name="email" type="email" autocomplete="email" required placeholder="voce@exemplo.com"></div>
 <div class="field"><label for="atuacaoProf">Área de atuação</label><select id="atuacaoProf" name="atuacaoProf"><option value="">Selecione</option><option>Instrutor autônomo</option><option>Instrutor vinculado a autoescola</option><option>Gestor de CFC</option><option>Profissional de trânsito</option><option>Outro</option></select></div>
