@@ -46,6 +46,10 @@ const ENUM_LABELS = {
   vigente: 'Vigente', 'em revisão': 'Em revisão', substituído: 'Substituído',
   vencido: 'Vencido', arquivado: 'Arquivado',
   administrativa: 'Administrativa', judicial: 'Judicial', extrajudicial: 'Extrajudicial', regulatoria: 'Regulatória', consulta: 'Consulta', representacao: 'Representação',
+  in_contact: 'Em contato', awaiting_response: 'Aguardando resposta', meeting_scheduled: 'Reunião agendada', in_negotiation: 'Em negociação',
+  orgao_publico: 'Órgão público', autarquia: 'Autarquia', entidade_classe: 'Entidade de classe', sindicato: 'Sindicato', universidade: 'Universidade', empresa: 'Empresa', organizacao_social: 'Organização social', outro: 'Outro',
+  oficio: 'Ofício', parceria: 'Parceria', reuniao: 'Reunião', negociacao: 'Negociação', consulta: 'Consulta', cooperacao: 'Cooperação', acompanhamento: 'Acompanhamento',
+  email: 'E-mail', telefone: 'Telefone', reuniao_presencial: 'Reunião presencial', reuniao_online: 'Reunião on-line', whatsapp: 'WhatsApp',
   federal: 'Federal', estadual: 'Estadual', municipal: 'Municipal',
   institucional: 'Institucional'
 };
@@ -66,7 +70,7 @@ const COLUMN_LABELS = {
   issuing_body: 'Órgão emissor / responsável', document_status: 'Situação documental',
   storage_path: 'Arquivo / link seguro', case_number: 'Número do processo',
   institution: 'Órgão/Instituição', deadline: 'Prazo',
-  contact_name: 'Nome do contato', next_action_at: 'Próxima ação',
+  contact_name: 'Nome do contato', next_action_at: 'Próxima ação', relation_type: 'Natureza da relação', institution_type: 'Tipo de instituição', channel: 'Canal de contato', last_contact_at: 'Último contato',
   meeting_type: 'Tipo de reunião', starts_at: 'Início', ends_at: 'Término',
   location: 'Local', channel: 'Canal', audience: 'Público',
   scheduled_at: 'Agendamento', priority: 'Prioridade',
@@ -126,8 +130,18 @@ const MODULES = [
   { section: 'juridico', table: 'legal_references', title: 'Legislação e normas', columns: ['title','norm_type','issuing_body','reference_number','jurisdiction','published_on','effective_on','status'], fields: [
     ['title','Título da norma','text',true],['norm_type','Tipo de norma','select',true,['Lei','Decreto','Resolução','Portaria','Deliberação','Instrução normativa','Medida provisória','Outro']],['issuing_body','Órgão emissor','text'],['reference_number','Número / identificação','text'],['jurisdiction','Abrangência','select',true,['federal','estadual','municipal','institucional']],['published_on','Data de publicação','date'],['effective_on','Início da vigência','date'],['status','Situação','select',true,['draft','active','revoked','repealed']],['source_url','Link da fonte oficial','url'],['summary','Ementa / observações','textarea']
   ]},
-  { section: 'representacao', table: 'institutional_relations', title: 'Relações institucionais', columns: ['institution','contact_name','subject','next_action_at','status'], fields: [
-    ['institution','Instituição','text',true],['contact_name','Contato','text'],['subject','Assunto','text'],['next_action_at','Próxima ação','date'],['status','Situação','select',false,['active','paused','closed']],['notes','Observações','textarea']
+  { section: 'representacao', table: 'institutional_relations', title: 'Relações institucionais', columns: ['institution','institution_type','relation_type','contact_name','subject','priority','status','next_action_at'], fields: [
+    ['institution','Instituição / entidade','text',true],
+    ['institution_type','Tipo de instituição','select',true,['orgao_publico','autarquia','entidade_classe','sindicato','universidade','empresa','organizacao_social','outro']],
+    ['relation_type','Natureza da relação','select',true,['representacao','oficio','parceria','reuniao','negociacao','consulta','cooperacao','acompanhamento']],
+    ['contact_name','Pessoa de contato','text'],
+    ['subject','Assunto / pauta principal','text'],
+    ['channel','Canal de contato','select',false,['email','telefone','oficio','reuniao_presencial','reuniao_online','whatsapp','outro']],
+    ['last_contact_at','Último contato','datetime-local'],
+    ['next_action_at','Próxima ação / compromisso','datetime-local'],
+    ['priority','Prioridade','select',true,['low','normal','high','urgent']],
+    ['status','Situação atual','select',true,['active','in_contact','awaiting_response','meeting_scheduled','in_negotiation','paused','completed','closed']],
+    ['notes','Histórico / observações','textarea']
   ]},
   { section: 'reunioes', table: 'meetings', title: 'Reuniões e agenda', columns: ['title','meeting_type','starts_at','ends_at','location','status'], fields: [
     ['title','Título','text',true],['meeting_type','Tipo','text'],['starts_at','Início','datetime-local',true],['ends_at','Término','datetime-local'],['location','Local','text'],['agenda','Pauta','textarea'],['status','Situação','select',false,['scheduled','held','cancelled']]
