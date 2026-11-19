@@ -32,12 +32,14 @@ RETURN QUERY SELECT v_id,v_email,v_token,v_expiry;
 END; $$;
 CREATE OR REPLACE FUNCTION anit.claim_user_invitation(p_invite_token uuid)
 RETURNS TABLE(profile_id uuid,full_name text,role text)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=anit,public AS $$
-DECLARE v_uid uuid:=auth.uid(); v_email text:=lower(trim(COALESCE(auth.jwt()->>'email','')));
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=anit,neon_auth,public AS $
+DECLARE v_uid uuid:=auth.uid(); v_email text;
 v_invitation anit.pending_user_invitations%ROWTYPE;
 v_allowed_keys text[]:=ARRAY['dashboard.read','associates.read','associates.manage','board.read','board.manage','finance.read','finance.manage','protocols.read','protocols.manage','documents.read','documents.manage','legal.read','legal.manage','institutional.read','institutional.manage','meetings.read','meetings.manage','communications.read','communications.manage','demands.read','demands.manage','reports.read','reports.manage','system.read','audit.read']::text[];
 BEGIN
-IF v_uid IS NULL OR v_email='' THEN RAISE EXCEPTION 'Entre na conta autenticada após confirmar o e-mail.'; END IF;
+IF v_uid IS NULL THEN RAISE EXCEPTION 'Entre na conta autenticada após confirmar o e-mail.'; END IF;
+SELECT lower(u.email) INTO v_email FROM neon_auth.\"user\" u WHERE u.id=v_uid AND u.\"emailVerified\" IS TRUE AND COALESCE(u.banned,false)=false;
+IF v_email IS NULL THEN RAISE EXCEPTION 'Confirme seu endereço de e-mail antes de ativar o perfil institucional.'; END IF;
 SELECT * INTO v_invitation FROM anit.pending_user_invitations WHERE invite_token=p_invite_token AND email=v_email AND status='pending' AND expires_at>now() FOR UPDATE;
 IF NOT FOUND THEN RAISE EXCEPTION 'Convite inválido, expirado ou destinado a outro endereço de e-mail.'; END IF;
 IF EXISTS(SELECT 1 FROM anit.user_profiles WHERE user_id=v_uid) THEN RAISE EXCEPTION 'Esta conta já possui um perfil institucional.'; END IF;
