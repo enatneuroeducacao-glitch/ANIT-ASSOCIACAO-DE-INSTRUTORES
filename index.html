@@ -91,6 +91,29 @@ navLinks.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{navLin
 document.getElementById('year').textContent=new Date().getFullYear();
 
 </script>
+
+<script type="module">
+import { NEON_DATA_API_URL } from './src/config.js';
+const contactForm=document.getElementById('contactForm');
+contactForm?.addEventListener('submit',async event=>{
+ event.preventDefault();
+ const feedback=document.getElementById('formMessage');
+ const button=contactForm.querySelector('button[type="submit"]');
+ const values=Object.fromEntries(new FormData(contactForm).entries());
+ if(values.website)return;
+ if(!document.getElementById('consentimento').checked){feedback.textContent='Autorize o uso dos dados para enviar sua solicitação.';feedback.style.display='block';return;}
+ if(!NEON_DATA_API_URL){feedback.textContent='O recebimento eletrônico está temporariamente indisponível. Tente novamente mais tarde.';feedback.style.display='block';return;}
+ button.disabled=true;button.textContent='Enviando solicitação...';feedback.style.display='none';
+ try{
+  const response=await fetch(NEON_DATA_API_URL.replace(/\/$/,'')+'/rpc/submit_public_member_demand',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({p_name:values.nome,p_email:values.email,p_area:values.atuacaoProf||'',p_city:values.cidade||'',p_subject:values.assunto,p_message:values.mensagem,p_consent:true})});
+  if(!response.ok){let detail='Não foi possível registrar sua solicitação.';try{const error=await response.json();if(error.message)detail=error.message}catch{}throw new Error(detail);}
+  const result=await response.json();const item=Array.isArray(result)?result[0]:result;if(!item?.reference_code)throw new Error('O sistema não confirmou o número de protocolo.');
+  contactForm.reset();feedback.textContent='Solicitação recebida pela ANIT com sucesso. Seu protocolo é '+item.reference_code+'. Guarde este número para acompanhar o atendimento.';feedback.dataset.kind='success';
+ }catch(error){feedback.textContent='Não foi possível enviar sua solicitação: '+error.message+' Se o problema persistir, tente novamente mais tarde.';feedback.dataset.kind='error';}
+ finally{feedback.style.display='block';button.disabled=false;button.innerHTML='Enviar solicitação <span aria-hidden="true">→</span>';}
+});
+</script>
+
 <script type="module">
 import { createClient } from '@neondatabase/neon-js';
 import { NEON_DATA_API_URL } from './src/config.js';
