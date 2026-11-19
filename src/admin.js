@@ -1318,7 +1318,7 @@ async function loadDashboardStats() {
 
 async function loadAudit() {
   const section = document.getElementById('usuarios');
-  if (!section || !['administrator','president'].includes(currentProfile.role)) return;
+  if (!section || !['administrator','president','vice_president'].includes(currentProfile.role)) return;
   const panel = document.createElement('div');
   panel.className = 'panel anit-data-panel';
   panel.innerHTML = '<div class="panel-head"><h2>Trilha de auditoria</h2></div><div class="anit-table-wrap"></div>';
@@ -1395,6 +1395,7 @@ async function loadUsersAndPermissions() {
   }
   async function renderPermissionEditor(user){
     const editor=panel.querySelector('#anit-user-permission-editor');editor.replaceChildren();const title=document.createElement('h4');title.textContent='Acessos de '+user.full_name+' — '+(ROLE_LABELS[user.role]||user.role);editor.append(title);
+    if(['president','vice_president','administrator'].includes(user.role)){const note=document.createElement('p');note.className='muted';note.textContent='Este perfil possui controle integral por função institucional. Suas permissões não podem ser reduzidas por liberações setoriais.';editor.append(note);return;}
     if(['president','vice_president','administrator'].includes(user.role)&&!top){const note=document.createElement('p');note.textContent='Perfis de controle institucional não podem ser alterados por responsáveis setoriais.';editor.append(note);return;}
     const {data:overrides,error}=await neon.from('user_permissions').select('permission_key,allowed').eq('user_id',user.user_id);
     if(error){const p=document.createElement('p');p.textContent='Não foi possível consultar liberações individuais: '+error.message;editor.append(p);return;}
@@ -1450,8 +1451,8 @@ async function renderReports(panel){
 }
 
 async function loadSettings() {
-  if(!['administrator','president'].includes(currentProfile.role)) return;
-  const canEditSettings=currentProfile.role==='administrator';
+  if(!['administrator','president','vice_president'].includes(currentProfile.role)) return;
+  const canEditSettings=['administrator','president','vice_president'].includes(currentProfile.role);
   const section=document.getElementById('configuracoes');
   if(!section || document.getElementById('anit-settings')) return;
   section.querySelectorAll('.panel,.module-grid').forEach(node=>node.remove());
