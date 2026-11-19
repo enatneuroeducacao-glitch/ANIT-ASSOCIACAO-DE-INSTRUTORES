@@ -32,7 +32,7 @@ RETURN QUERY SELECT v_id,v_email,v_token,v_expiry;
 END; $$;
 CREATE OR REPLACE FUNCTION anit.claim_user_invitation(p_invite_token uuid)
 RETURNS TABLE(profile_id uuid,full_name text,role text)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=anit,neon_auth,public AS $
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=anit,neon_auth,public AS $$
 DECLARE v_uid uuid:=auth.uid(); v_email text;
 v_invitation anit.pending_user_invitations%ROWTYPE;
 v_allowed_keys text[]:=ARRAY['dashboard.read','associates.read','associates.manage','board.read','board.manage','finance.read','finance.manage','protocols.read','protocols.manage','documents.read','documents.manage','legal.read','legal.manage','institutional.read','institutional.manage','meetings.read','meetings.manage','communications.read','communications.manage','demands.read','demands.manage','reports.read','reports.manage','system.read','audit.read']::text[];
