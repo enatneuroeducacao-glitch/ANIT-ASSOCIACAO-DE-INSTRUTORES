@@ -1,6 +1,15 @@
 import { createClient } from '@neondatabase/neon-js';
 import { NEON_AUTH_URL, NEON_DATA_API_URL } from './config.js';
 
+// Remove credenciais eventualmente recebidas por URL antes de inicializar a aplicação.
+if (window.location.search) {
+  const safeUrl = new URL(window.location.href);
+  const hadCredentials = safeUrl.searchParams.has('password') || safeUrl.searchParams.has('email');
+  safeUrl.searchParams.delete('password');
+  safeUrl.searchParams.delete('email');
+  if (hadCredentials) window.history.replaceState({}, document.title, safeUrl.pathname + safeUrl.search + safeUrl.hash);
+}
+
 const AUTH_URL = NEON_AUTH_URL;
 const DATA_API_URL = NEON_DATA_API_URL;
 const authGate = document.getElementById('authGate');
@@ -24,16 +33,19 @@ const ENUM_LABELS = {
   income: 'Receita', expense: 'Despesa', paid: 'Pago',
   cancelled: 'Cancelado', overdue: 'Em atraso',
   incoming: 'Recebido', outgoing: 'Enviado', internal: 'Interno',
-  open: 'Aberto', in_progress: 'Em andamento', answered: 'Respondido',
+  open: 'Aberto', in_analysis: 'Em análise', awaiting_documents: 'Aguardando documentos', awaiting_response: 'Aguardando resposta', in_progress: 'Em andamento', decision_issued: 'Decisão proferida', appeal: 'Em recurso', answered: 'Respondido',
   archived: 'Arquivado', public: 'Público', restricted: 'Restrito',
   confidential: 'Confidencial', monitoring: 'Em acompanhamento',
   closed: 'Concluído', paused: 'Pausado', scheduled: 'Agendado',
+  decision_issued: 'Decisão proferida', appeal: 'Em recurso',
   held: 'Realizado', draft: 'Rascunho', published: 'Publicado',
   low: 'Baixa', normal: 'Normal', high: 'Alta', urgent: 'Urgente',
   waiting: 'Aguardando', resolved: 'Resolvido',
+  in_analysis: 'Em análise', awaiting_documents: 'Aguardando documentos', awaiting_response: 'Aguardando resposta',
   repealed: 'Revogada integralmente',
   vigente: 'Vigente', 'em revisão': 'Em revisão', substituído: 'Substituído',
   vencido: 'Vencido', arquivado: 'Arquivado',
+  administrativa: 'Administrativa', judicial: 'Judicial', extrajudicial: 'Extrajudicial', regulatoria: 'Regulatória', consulta: 'Consulta', representacao: 'Representação',
   federal: 'Federal', estadual: 'Estadual', municipal: 'Municipal',
   institucional: 'Institucional'
 };
@@ -41,7 +53,7 @@ const ENUM_LABELS = {
 const COLUMN_LABELS = {
   membership_number: 'Matrícula', full_name: 'Nome completo', email: 'E-mail',
   phone: 'Telefone', city: 'Cidade', state: 'UF', category: 'Categoria',
-  status: 'Situação', office: 'Cargo', term_start: 'Início do mandato',
+  status: 'Situação', case_type: 'Tipo de demanda', opposing_party: 'Parte relacionada', office: 'Cargo', term_start: 'Início do mandato',
   term_end: 'Fim do mandato', entry_type: 'Tipo', description: 'Descrição',
   amount: 'Valor', competence_date: 'Competência', due_date: 'Vencimento',
   payment_method: 'Forma de pagamento', protocol_number: 'Número do protocolo',
@@ -100,8 +112,16 @@ const MODULES = [
     ['confidentiality','Classificação de acesso','select',true,['internal','public','restricted','confidential']],
     ['description','Ementa / descrição','textarea']
   ]},
-  { section: 'juridico', table: 'legal_cases', title: 'Demandas jurídicas', columns: ['title','case_number','institution','status','deadline'], fields: [
-    ['title','Título','text',true],['case_number','Número do processo','text'],['institution','Órgão/Instituição','text'],['deadline','Prazo','date'],['status','Situação','select',false,['open','monitoring','closed','suspended']],['summary','Resumo','textarea']
+  { section: 'juridico', table: 'legal_cases', title: 'Demandas e processos jurídicos', columns: ['title','case_type','case_number','institution','priority','status','deadline'], fields: [
+    ['title','Título / assunto','text',true],
+    ['case_type','Tipo de demanda','select',true,['administrativa','judicial','extrajudicial','regulatoria','consulta','representacao']],
+    ['case_number','Número do processo / protocolo','text'],
+    ['institution','Órgão / instituição responsável','text'],
+    ['opposing_party','Parte relacionada / interessado','text'],
+    ['priority','Prioridade','select',true,['low','normal','high','urgent']],
+    ['deadline','Prazo / próxima data limite','date'],
+    ['status','Situação atual','select',true,['open','in_analysis','awaiting_documents','awaiting_response','in_progress','decision_issued','appeal','suspended','closed','archived']],
+    ['summary','Resumo / histórico inicial','textarea']
   ]},
   { section: 'juridico', table: 'legal_references', title: 'Legislação e normas', columns: ['title','norm_type','issuing_body','reference_number','jurisdiction','published_on','effective_on','status'], fields: [
     ['title','Título da norma','text',true],['norm_type','Tipo de norma','select',true,['Lei','Decreto','Resolução','Portaria','Deliberação','Instrução normativa','Medida provisória','Outro']],['issuing_body','Órgão emissor','text'],['reference_number','Número / identificação','text'],['jurisdiction','Abrangência','select',true,['federal','estadual','municipal','institucional']],['published_on','Data de publicação','date'],['effective_on','Início da vigência','date'],['status','Situação','select',true,['draft','active','revoked','repealed']],['source_url','Link da fonte oficial','url'],['summary','Ementa / observações','textarea']
@@ -177,13 +197,16 @@ function applyRoleVisibility(role) {
 async function addDataPanel(module) {
   const section = document.getElementById(module.section);
   if (!section || document.getElementById('data-' + module.table)) return;
-  section.querySelectorAll('.empty,.module-grid,.notice').forEach(node => node.remove());
+  section.querySelectorAll('.empty,.module-grid').forEach(node => node.remove());
   const panel = document.createElement('div');
   panel.className = 'panel anit-data-panel';
   panel.id = 'data-' + module.table;
   panel.innerHTML = '<div class="panel-head"><h2></h2><div class="anit-toolbar"><input class="anit-search" type="search" placeholder="Buscar registros"><button class="btn btn-light anit-refresh" type="button">Atualizar</button></div></div><div class="anit-form-wrap"></div><div class="anit-table-wrap"></div><p class="anit-feedback" role="status"></p>';
   panel.querySelector('h2').textContent = module.title;
   section.appendChild(panel);
+  if (module.table === 'legal_cases') {
+    const legalArea=document.createElement('div'); legalArea.className='anit-legal-details panel'; legalArea.hidden=true; panel.appendChild(legalArea);
+  }
   if (module.table === 'official_documents') {
     const attachmentArea = document.createElement('div');
     attachmentArea.className = 'anit-attachments panel';
@@ -196,6 +219,7 @@ async function addDataPanel(module) {
   createForm.dataset.mode = 'create';
   const allowedToManage = canManage(module.table, currentProfile.role);
   let editingId = null;
+  let editingOriginalStatus = null;
   if (module.table === 'associates' && currentProfile.role === 'administrator') {
     const typesButton = document.createElement('button');
     typesButton.type = 'button';
@@ -257,6 +281,7 @@ async function addDataPanel(module) {
   cancel.hidden = true;
   cancel.addEventListener('click', () => {
     editingId = null;
+    editingOriginalStatus = null;
     createForm.reset();
     createForm.dataset.mode = 'create';
     submit.textContent = 'Salvar registro';
@@ -265,7 +290,7 @@ async function addDataPanel(module) {
     panel.querySelector('.anit-feedback').textContent = '';
   });
   let attachmentInput = null;
-  if (module.table === 'official_documents') {
+  if (['official_documents','legal_cases'].includes(module.table)) {
     const attachmentField = document.createElement('div');
     attachmentField.className = 'field';
     attachmentField.style.gridColumn = '1 / -1';
@@ -276,8 +301,8 @@ async function addDataPanel(module) {
     attachmentInput.name = '_attachments';
     attachmentInput.multiple = true;
     attachmentInput.accept = '.pdf,.docx,.xlsx,.jpg,.jpeg,.png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png';
-    attachmentLabel.htmlFor = 'official-documents-attachments';
-    attachmentInput.id = 'official-documents-attachments';
+    attachmentLabel.htmlFor = module.table + '-attachments';
+    attachmentInput.id = module.table + '-attachments';
     attachmentField.append(attachmentLabel, attachmentInput);
     createForm.appendChild(attachmentField);
     const hint = document.createElement('small');
@@ -310,6 +335,7 @@ async function addDataPanel(module) {
     input.id = module.table + '-' + name;
     input.name = name;
     if (module.table === 'official_documents' && name === 'version') input.value = '1';
+    if (module.table === 'legal_cases' && name === 'priority') input.value = 'normal';
     if (module.table === 'protocols' && name === 'protocol_number') {
       input.readOnly = true;
       input.placeholder = 'Gerado automaticamente ao iniciar novo protocolo';
@@ -349,7 +375,7 @@ async function addDataPanel(module) {
         feedback.dataset.kind = 'error';
         return;
       }
-      const attachmentFiles = module.table === 'official_documents'
+      const attachmentFiles = ['official_documents','legal_cases'].includes(module.table)
         ? [...(attachmentInput?.files || [])].filter(file => file && file.size > 0)
         : [];
       const payload = Object.fromEntries(new FormData(createForm).entries());
@@ -381,12 +407,26 @@ async function addDataPanel(module) {
         }
         let savedDocumentId = editingId;
         if (editingId) {
-          const { error } = await neon.from(module.table).update(payload).eq('id', editingId);
-          if (error) throw error;
+          if (module.table === 'legal_cases') {
+            const { status: nextStatus, ...caseFields } = payload;
+            const { error } = await neon.from(module.table).update(caseFields).eq('id', editingId);
+            if (error) throw error;
+            if (nextStatus && editingOriginalStatus !== nextStatus) {
+              const { error: statusError } = await neon.rpc('update_legal_case_status', {
+                p_case_id: editingId, p_new_status: nextStatus,
+                p_event_date: new Date().toISOString().slice(0,10),
+                p_notes: 'Situação alterada no formulário de edição.'
+              });
+              if (statusError) throw statusError;
+            }
+          } else {
+            const { error } = await neon.from(module.table).update(payload).eq('id', editingId);
+            if (error) throw error;
+          }
           feedback.textContent = 'Registro atualizado com sucesso.';
         } else {
           payload.created_by = activeSessionUser.id;
-          if (module.table === 'official_documents') {
+          if (['official_documents','legal_cases'].includes(module.table)) {
             const { data: inserted, error } = await neon.from(module.table).insert(payload).select('id').single();
             if (error) throw error;
             savedDocumentId = inserted.id;
@@ -401,6 +441,28 @@ async function addDataPanel(module) {
           }
           feedback.textContent = 'Registro cadastrado com sucesso.';
         }
+        if (module.table === 'legal_cases') {
+          const nextStatus = payload.status || 'open';
+          if (!editingId) {
+            const { error: historyError } = await neon.from('legal_case_updates').insert({
+              case_id: savedDocumentId, event_date: new Date().toISOString().slice(0,10),
+              previous_status: null, new_status: nextStatus,
+              notes: payload.summary || 'Cadastro inicial da demanda jurídica.', created_by: activeSessionUser.id
+            });
+            if (historyError) throw historyError;
+          }
+          if (attachmentFiles.length) {
+            try {
+              await uploadLegalCaseAttachments(savedDocumentId, attachmentFiles, activeSessionUser.id);
+              feedback.textContent = 'Demanda salva e anexo(s) armazenado(s) com sucesso.';
+            } catch (attachmentError) {
+              feedback.textContent = 'A demanda foi salva, mas houve falha ao armazenar os anexos: ' + attachmentError.message + '. Use Acompanhamento para tentar novamente.';
+              feedback.dataset.kind = 'error';
+              await loadTable(module);
+              return;
+            }
+          }
+        }
         if (module.table === 'official_documents' && attachmentFiles.length) {
           try {
             await uploadOfficialDocumentAttachments(savedDocumentId, attachmentFiles, activeSessionUser.id);
@@ -414,6 +476,7 @@ async function addDataPanel(module) {
         }
         feedback.dataset.kind = 'success';
         editingId = null;
+        editingOriginalStatus = null;
         createForm.reset();
         createForm.dataset.mode = 'create';
         submit.textContent = 'Salvar registro';
@@ -482,6 +545,7 @@ async function addDataPanel(module) {
   panel._editRecord = row => {
     if (!allowedToManage) return;
     editingId = row.id;
+    editingOriginalStatus = row.status ?? null;
     createForm.hidden = false;
     if (module.table === 'protocols') {
       const newButton = document.getElementById('newProtocolButton');
@@ -663,6 +727,165 @@ async function showOfficialDocumentAttachments(docRecord) {
   area.hidden = false;
 }
 
+const LEGAL_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+const LEGAL_ATTACHMENT_TYPES = new Map([
+  ['pdf','application/pdf'],
+  ['docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ['jpg','image/jpeg'], ['jpeg','image/jpeg'], ['png','image/png']
+]);
+
+async function uploadLegalCaseAttachments(caseId, files, userId) {
+  if (!caseId) throw new Error('Demanda jurídica não identificada.');
+  if (files.length > 10) throw new Error('Envie no máximo 10 anexos por operação.');
+  for (const file of files) {
+    const extension = (file.name.split('.').pop() || '').toLowerCase();
+    const contentType = LEGAL_ATTACHMENT_TYPES.get(extension);
+    if (!contentType) throw new Error('Formato não permitido: ' + file.name);
+    if (file.size > LEGAL_ATTACHMENT_MAX_BYTES) throw new Error('O arquivo ' + file.name + ' ultrapassa 5 MB.');
+    const buffer = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    const checksum = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,'0')).join('');
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let offset=0; offset<bytes.length; offset+=0x8000) binary += String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
+    const safeName = Array.from(file.name).map(char => char === '/' || char === String.fromCharCode(92) || char.charCodeAt(0)<32 ? '_' : char).join('').slice(0,240);
+    const { error } = await neon.rpc('store_legal_case_attachment', {
+      p_case_id: caseId, p_file_name: safeName, p_content_type: contentType,
+      p_file_base64: btoa(binary), p_checksum_sha256: checksum
+    });
+    if (error) throw new Error('Falha ao armazenar ' + safeName + ': ' + error.message);
+  }
+}
+
+async function showLegalCaseDetails(caseRecord) {
+  const panel = window.document.getElementById('data-legal_cases');
+  const feedback = panel?.querySelector('.anit-feedback');
+  const area = panel?.querySelector('.anit-legal-details');
+  if (!panel || !area || !feedback) return;
+  area.replaceChildren();
+  area.hidden = false;
+  const heading = window.document.createElement('h3');
+  heading.textContent = 'Acompanhamento — ' + caseRecord.title;
+  area.appendChild(heading);
+  const canEdit = canManage('legal_cases',currentProfile.role);
+  if (canEdit) {
+    const updateForm = window.document.createElement('form');
+    updateForm.className = 'field-grid anit-create-form';
+    const dateField = window.document.createElement('div'); dateField.className='field';
+    const dateLabel = window.document.createElement('label'); dateLabel.textContent='Data da atualização';
+    const dateInput = window.document.createElement('input'); dateInput.type='date'; dateInput.required=true;
+    dateInput.value = new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+    dateField.append(dateLabel,dateInput);
+    const statusField = window.document.createElement('div'); statusField.className='field';
+    const statusLabel = window.document.createElement('label'); statusLabel.textContent='Nova situação';
+    const statusInput = window.document.createElement('select');
+    ['open','in_analysis','awaiting_documents','awaiting_response','in_progress','decision_issued','appeal','suspended','closed','archived'].forEach(value=>{
+      const option=window.document.createElement('option'); option.value=value; option.textContent=translateEnum(value); statusInput.appendChild(option);
+    });
+    statusInput.value=caseRecord.status; statusField.append(statusLabel,statusInput);
+    const noteField = window.document.createElement('div'); noteField.className='field'; noteField.style.gridColumn='1 / -1';
+    const noteLabel = window.document.createElement('label'); noteLabel.textContent='Descrição da movimentação / providência';
+    const noteInput = window.document.createElement('textarea'); noteInput.rows=3; noteInput.placeholder='Descreva o andamento, decisão, contato ou providência...';
+    noteField.append(noteLabel,noteInput);
+    const saveUpdate = window.document.createElement('button'); saveUpdate.type='submit'; saveUpdate.className='btn btn-primary'; saveUpdate.textContent='Registrar atualização';
+    updateForm.append(dateField,statusField,noteField,saveUpdate);
+    updateForm.addEventListener('submit',async event=>{
+      event.preventDefault(); saveUpdate.disabled=true;
+      try {
+        const nextStatus=statusInput.value;
+        const {error:updateError}=await neon.rpc('update_legal_case_status',{
+          p_case_id:caseRecord.id,p_new_status:nextStatus,p_event_date:dateInput.value,
+          p_notes:noteInput.value.trim() || null
+        });
+        if(updateError) throw updateError;
+        caseRecord.status=nextStatus;
+        noteInput.value='';
+        feedback.textContent='Atualização registrada no histórico.';
+        feedback.dataset.kind='success';
+        await loadTable(MODULES.find(item=>item.table==='legal_cases'));
+        await showLegalCaseDetails(caseRecord);
+      } catch(error) {
+        feedback.textContent='Não foi possível registrar a atualização: '+error.message;
+        feedback.dataset.kind='error';
+      } finally { saveUpdate.disabled=false; }
+    });
+    area.appendChild(updateForm);
+  }
+  const attachmentTitle=window.document.createElement('h4'); attachmentTitle.textContent='Anexos do processo';
+  area.appendChild(attachmentTitle);
+  if (canEdit) {
+    const uploadLabel=window.document.createElement('label'); uploadLabel.className='btn btn-primary btn-small'; uploadLabel.textContent='Adicionar anexos';
+    const uploadInput=window.document.createElement('input'); uploadInput.type='file'; uploadInput.multiple=true; uploadInput.accept='.pdf,.docx,.xlsx,.jpg,.jpeg,.png'; uploadInput.hidden=true;
+    uploadInput.addEventListener('change',async()=>{
+      const files=[...uploadInput.files].filter(file=>file.size>0); if(!files.length)return;
+      uploadLabel.textContent='Enviando...'; uploadLabel.style.pointerEvents='none';
+      try { await uploadLegalCaseAttachments(caseRecord.id,files,currentUser.id); feedback.textContent='Anexos armazenados.'; feedback.dataset.kind='success'; await showLegalCaseDetails(caseRecord); }
+      catch(error){feedback.textContent='Falha no envio: '+error.message;feedback.dataset.kind='error';}
+      finally{uploadLabel.textContent='Adicionar anexos';uploadLabel.style.pointerEvents='';uploadInput.value='';}
+    });
+    uploadLabel.appendChild(uploadInput); area.appendChild(uploadLabel);
+  }
+  const [updatesResult,filesResult]=await Promise.all([
+    neon.from('legal_case_updates').select('id,event_date,previous_status,new_status,notes,created_at').eq('case_id',caseRecord.id).order('event_date',{ascending:false}),
+    neon.from('legal_case_attachments').select('id,file_name,content_type,file_size,created_at,checksum_sha256').eq('case_id',caseRecord.id).order('created_at',{ascending:false})
+  ]);
+  if(updatesResult.error || filesResult.error) {
+    feedback.textContent='Não foi possível carregar todo o acompanhamento: '+(updatesResult.error?.message || filesResult.error?.message);
+    feedback.dataset.kind='error'; return;
+  }
+  const historyTitle=window.document.createElement('h4'); historyTitle.textContent='Histórico de movimentações';
+  area.appendChild(historyTitle);
+  if(!updatesResult.data?.length) {
+    const empty=window.document.createElement('p'); empty.textContent='Nenhuma movimentação registrada ainda.'; area.appendChild(empty);
+  }
+  for(const item of updatesResult.data || []) {
+    const line=window.document.createElement('div'); line.className='anit-attachment-row';
+    const label=window.document.createElement('span');
+    label.textContent=new Date(item.event_date+'T12:00:00').toLocaleDateString('pt-BR')+' · '+translateEnum(item.new_status)+(item.previous_status?' (anterior: '+translateEnum(item.previous_status)+')':'')+(item.notes?' — '+item.notes:'');
+    line.appendChild(label); area.appendChild(line);
+  }
+  const filesTitle=window.document.createElement('h4'); filesTitle.textContent='Arquivos anexados';
+  area.appendChild(filesTitle);
+  if(!filesResult.data?.length) {
+    const empty=window.document.createElement('p'); empty.textContent='Nenhum anexo cadastrado.'; area.appendChild(empty);
+  }
+  for(const item of filesResult.data || []) {
+    const line=window.document.createElement('div'); line.className='anit-attachment-row';
+    const label=window.document.createElement('span'); label.textContent=item.file_name+' · '+(item.file_size/1024).toFixed(0)+' KB';
+    const download=window.document.createElement('button'); download.type='button'; download.className='btn btn-light btn-small'; download.textContent='Baixar';
+    download.addEventListener('click',async()=>{
+      download.disabled=true;
+      try {
+        const {data:fileRow,error}=await neon.from('legal_case_attachments').select('file_name,content_type,file_data,checksum_sha256').eq('id',item.id).single();
+        if(error)throw error;
+        const raw=fileRow.file_data;
+        if (typeof raw !== 'string' || !raw.startsWith('\\x')) throw new Error('Formato binário não reconhecido.');
+        const bytes=new Uint8Array(raw.slice(2).match(/.{1,2}/g).map(pair=>parseInt(pair,16)));
+        const digest=await crypto.subtle.digest('SHA-256',bytes);
+        const checksum=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+        if(checksum!==fileRow.checksum_sha256)throw new Error('Falha na verificação de integridade SHA-256.');
+        const url=URL.createObjectURL(new Blob([bytes],{type:fileRow.content_type}));
+        const link=window.document.createElement('a'); link.href=url; link.download=fileRow.file_name; link.click();
+        window.setTimeout(()=>URL.revokeObjectURL(url),1500);
+      } catch(error){feedback.textContent='Não foi possível baixar: '+error.message;feedback.dataset.kind='error';}
+      finally{download.disabled=false;}
+    });
+    line.append(label,download);
+    if(canEdit) {
+      const remove=window.document.createElement('button'); remove.type='button'; remove.className='btn btn-danger btn-small'; remove.textContent='Excluir';
+      remove.addEventListener('click',async()=>{
+        if(!window.confirm('Excluir este anexo permanentemente?'))return;
+        const {error}=await neon.from('legal_case_attachments').delete().eq('id',item.id);
+        if(error){feedback.textContent='Não foi possível excluir: '+error.message;feedback.dataset.kind='error';return;}
+        await showLegalCaseDetails(caseRecord);
+      });
+      line.appendChild(remove);
+    }
+    area.appendChild(line);
+  }
+}
+
 async function loadTable(module) {
   const panel = document.getElementById('data-' + module.table);
   if (!panel) return;
@@ -687,7 +910,7 @@ async function loadTable(module) {
     th.textContent = formatColumnLabel(column);
     headerRow.appendChild(th);
   });
-  if (canManage(module.table,currentProfile.role) || module.table === 'official_documents') {
+  if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases'].includes(module.table)) {
     const th=document.createElement('th'); th.textContent='Ações'; headerRow.appendChild(th);
   }
   head.appendChild(headerRow); table.appendChild(head);
@@ -700,8 +923,12 @@ async function loadTable(module) {
       td.textContent = value == null ? '—' : (typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? new Date(value).toLocaleString('pt-BR') : translateEnum(value));
       tr.appendChild(td);
     });
-    if (canManage(module.table,currentProfile.role) || module.table === 'official_documents') {
+    if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases'].includes(module.table)) {
       const actions=document.createElement('td');
+      if (module.table === 'legal_cases') {
+        const followup=document.createElement('button'); followup.type='button'; followup.className='btn btn-light btn-small'; followup.textContent='Acompanhamento';
+        followup.addEventListener('click',()=>showLegalCaseDetails(row)); actions.append(followup);
+      }
       if (module.table === 'official_documents') {
         const attachments = document.createElement('button');
         attachments.type='button'; attachments.className='btn btn-light btn-small'; attachments.textContent='Anexos';
