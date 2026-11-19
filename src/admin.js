@@ -208,6 +208,7 @@ async function addDataPanel(module) {
   createForm.dataset.mode = 'create';
   const allowedToManage = canManage(module.table, currentProfile.role);
   let editingId = null;
+  let editingOriginalStatus = null;
   if (module.table === 'associates' && currentProfile.role === 'administrator') {
     const typesButton = document.createElement('button');
     typesButton.type = 'button';
@@ -269,6 +270,7 @@ async function addDataPanel(module) {
   cancel.hidden = true;
   cancel.addEventListener('click', () => {
     editingId = null;
+    editingOriginalStatus = null;
     createForm.reset();
     createForm.dataset.mode = 'create';
     submit.textContent = 'Salvar registro';
@@ -277,7 +279,7 @@ async function addDataPanel(module) {
     panel.querySelector('.anit-feedback').textContent = '';
   });
   let attachmentInput = null;
-  if (module.table === 'official_documents') {
+  if (['official_documents','legal_cases'].includes(module.table)) {
     const attachmentField = document.createElement('div');
     attachmentField.className = 'field';
     attachmentField.style.gridColumn = '1 / -1';
@@ -289,7 +291,7 @@ async function addDataPanel(module) {
     attachmentInput.multiple = true;
     attachmentInput.accept = '.pdf,.docx,.xlsx,.jpg,.jpeg,.png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png';
     attachmentLabel.htmlFor = 'official-documents-attachments';
-    attachmentInput.id = 'official-documents-attachments';
+    attachmentInput.id = module.table + '-attachments';
     attachmentField.append(attachmentLabel, attachmentInput);
     createForm.appendChild(attachmentField);
     const hint = document.createElement('small');
@@ -361,7 +363,7 @@ async function addDataPanel(module) {
         feedback.dataset.kind = 'error';
         return;
       }
-      const attachmentFiles = module.table === 'official_documents'
+      const attachmentFiles = ['official_documents','legal_cases'].includes(module.table)
         ? [...(attachmentInput?.files || [])].filter(file => file && file.size > 0)
         : [];
       const payload = Object.fromEntries(new FormData(createForm).entries());
@@ -398,7 +400,7 @@ async function addDataPanel(module) {
           feedback.textContent = 'Registro atualizado com sucesso.';
         } else {
           payload.created_by = activeSessionUser.id;
-          if (module.table === 'official_documents') {
+          if (['official_documents','legal_cases'].includes(module.table)) {
             const { data: inserted, error } = await neon.from(module.table).insert(payload).select('id').single();
             if (error) throw error;
             savedDocumentId = inserted.id;
@@ -413,6 +415,35 @@ async function addDataPanel(module) {
           }
           feedback.textContent = 'Registro cadastrado com sucesso.';
         }
+        if (module.table === 'legal_cases') {
+          const nextStatus = payload.status || 'open';
+          if (!editingId) {
+            const { error: historyError } = await neon.from('legal_case_updates').insert({
+              case_id: savedDocumentId, event_date: new Date().toISOString().slice(0,10),
+              previous_status: null, new_status: nextStatus,
+              notes: payload.summary || 'Cadastro inicial da demanda jurídica.', created_by: activeSessionUser.id
+            });
+            if (historyError) throw historyError;
+          } else if (editingOriginalStatus && editingOriginalStatus !== nextStatus) {
+            const { error: historyError } = await neon.from('legal_case_updates').insert({
+              case_id: savedDocumentId, event_date: new Date().toISOString().slice(0,10),
+              previous_status: editingOriginalStatus, new_status: nextStatus,
+              notes: 'Situação alterada no formulário de edição.', created_by: activeSessionUser.id
+            });
+            if (historyError) throw historyError;
+          }
+          if (attachmentFiles.length) {
+            try {
+              await uploadLegalCaseAttachments(savedDocumentId, attachmentFiles, activeSessionUser.id);
+              feedback.textContent = 'Demanda salva e anexo(s) armazenado(s) com sucesso.';
+            } catch (attachmentError) {
+              feedback.textContent = 'A demanda foi salva, mas houve falha ao armazenar os anexos: ' + attachmentError.message + '. Use Acompanhamento para tentar novamente.';
+              feedback.dataset.kind = 'error';
+              await loadTable(module);
+              return;
+            }
+          }
+        }
         if (module.table === 'official_documents' && attachmentFiles.length) {
           try {
             await uploadOfficialDocumentAttachments(savedDocumentId, attachmentFiles, activeSessionUser.id);
@@ -426,6 +457,7 @@ async function addDataPanel(module) {
         }
         feedback.dataset.kind = 'success';
         editingId = null;
+        editingOriginalStatus = null;
         createForm.reset();
         createForm.dataset.mode = 'create';
         submit.textContent = 'Salvar registro';
@@ -494,6 +526,7 @@ async function addDataPanel(module) {
   panel._editRecord = row => {
     if (!allowedToManage) return;
     editingId = row.id;
+    editingOriginalStatus = row.status ?? null;
     createForm.hidden = false;
     if (module.table === 'protocols') {
       const newButton = document.getElementById('newProtocolButton');
