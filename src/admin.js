@@ -845,7 +845,7 @@ async function showLegalCaseDetails(caseRecord) {
         const {data:fileRow,error}=await neon.from('legal_case_attachments').select('file_name,content_type,file_data,checksum_sha256').eq('id',item.id).single();
         if(error)throw error;
         const raw=fileRow.file_data;
-        if(typeof raw!=='string'||!raw.startsWith('\\\\x'))throw new Error('Formato binário não reconhecido.');
+        if (typeof raw !== 'string' || !raw.startsWith('\\x')) throw new Error('Formato binário não reconhecido.');
         const bytes=new Uint8Array(raw.slice(2).match(/.{1,2}/g).map(pair=>parseInt(pair,16)));
         const digest=await crypto.subtle.digest('SHA-256',bytes);
         const checksum=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
