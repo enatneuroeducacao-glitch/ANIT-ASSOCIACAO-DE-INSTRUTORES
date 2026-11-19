@@ -1343,26 +1343,48 @@ async function loadAudit() {
   const isTech = currentProfile.role === 'administrator' && currentPermissions.has('audit.read');
   if (!isTop && !isTech) return;
   const section = document.getElementById(isTech ? 'dashboard' : 'usuarios');
-  if (!section) return;
+  if (!section || section.querySelector('.anit-audit-panel')) return;
   const panel = document.createElement('div');
-  panel.className = 'panel anit-data-panel';
-  panel.innerHTML = '<div class="panel-head"><h2>Trilha de auditoria</h2><span class="muted">'+(isTech?'Resumo técnico, sem identificação pessoal':'Registro institucional')+'</span></div><div class="anit-table-wrap"></div>';
+  panel.className = 'panel anit-data-panel anit-audit-panel';
+  panel.innerHTML = `
+    <details class="anit-audit-details">
+      <summary style="display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;padding:4px 0;font-weight:700">
+        <span>Trilha de auditoria</span>
+        <span class="muted" style="font-weight:400">${isTech ? 'Resumo técnico, sem identificação pessoal' : 'Registro institucional'} · Clique para expandir</span>
+      </summary>
+      <div class="anit-table-wrap" style="margin-top:16px"><p class="muted">Abra esta seção para consultar os últimos 50 registros.</p></div>
+    </details>`;
   section.appendChild(panel);
+  const details = panel.querySelector('.anit-audit-details');
   const wrap = panel.querySelector('.anit-table-wrap');
-  const fields = isTech ? 'action,table_name,occurred_at' : 'action,table_name,record_id,changed_fields,occurred_at,actor_user_id';
-  const { data, error } = await neon.from('audit_log').select(fields).order('occurred_at',{ascending:false}).limit(50);
-  if (error) { wrap.textContent = 'Auditoria indisponível: ' + error.message; return; }
-  if (!data?.length) { wrap.textContent = 'Nenhuma operação registrada até o momento.'; return; }
-  const table = document.createElement('table'); const head = document.createElement('tr');
-  (isTech ? ['Data','Ação','Área'] : ['Data','Ação','Tabela','Registro','Campos alterados','Usuário']).forEach(label => { const th=document.createElement('th'); th.textContent=label; head.appendChild(th); });
-  const thead=document.createElement('thead'); thead.appendChild(head); table.appendChild(thead);
-  const tbody=document.createElement('tbody');
-  data.forEach(row => {
-    const tr=document.createElement('tr');
-    const values=isTech ? [new Date(row.occurred_at).toLocaleString('pt-BR'),row.action,row.table_name] : [new Date(row.occurred_at).toLocaleString('pt-BR'),row.action,row.table_name,row.record_id,(row.changed_fields||[]).join(', '),row.actor_user_id];
-    values.forEach(value=>{const td=document.createElement('td');td.textContent=value||'—';tr.appendChild(td);}); tbody.appendChild(tr);
+  let loaded = false;
+  details.addEventListener('toggle', async () => {
+    if (!details.open || loaded) return;
+    loaded = true;
+    wrap.textContent = 'Carregando registros de auditoria...';
+    const fields = isTech ? 'action,table_name,occurred_at' : 'action,table_name,record_id,changed_fields,occurred_at,actor_user_id';
+    const { data, error } = await neon.from('audit_log').select(fields).order('occurred_at',{ascending:false}).limit(50);
+    if (error) { wrap.textContent = 'Auditoria indisponível: ' + error.message; loaded = false; return; }
+    if (!data?.length) { wrap.textContent = 'Nenhuma operação registrada até o momento.'; return; }
+    const table = document.createElement('table');
+    const head = document.createElement('tr');
+    (isTech ? ['Data','Ação','Área'] : ['Data','Ação','Tabela','Registro','Campos alterados','Usuário']).forEach(label => {
+      const th = document.createElement('th'); th.textContent = label; head.appendChild(th);
+    });
+    const thead = document.createElement('thead'); thead.appendChild(head); table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    data.forEach(row => {
+      const tr = document.createElement('tr');
+      const values = isTech
+        ? [new Date(row.occurred_at).toLocaleString('pt-BR'),row.action,row.table_name]
+        : [new Date(row.occurred_at).toLocaleString('pt-BR'),row.action,row.table_name,row.record_id,(row.changed_fields||[]).join(', '),row.actor_user_id];
+      values.forEach(value => { const td = document.createElement('td'); td.textContent = value || '—'; tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    const frame = document.createElement('div'); frame.className = 'table-wrap'; frame.appendChild(table);
+    wrap.replaceChildren(frame);
   });
-  table.appendChild(tbody); const frame=document.createElement('div'); frame.className='table-wrap'; frame.appendChild(table); wrap.replaceChildren(frame);
 }
 
 async function loadUsersAndPermissions() {
