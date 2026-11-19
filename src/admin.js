@@ -228,6 +228,7 @@ async function addDataPanel(module) {
     attachmentArea.hidden = true;
     panel.appendChild(attachmentArea);
   }
+  if(module.table==='meetings'){const calendar=document.createElement('div');calendar.className='anit-meeting-calendar';panel.insertBefore(calendar,panel.querySelector('.anit-form-wrap'));const workspace=document.createElement('div');workspace.className='anit-meeting-workspace panel';workspace.hidden=true;panel.append(workspace);}
   const formWrap = panel.querySelector('.anit-form-wrap');
   const createForm = document.createElement('form');
   createForm.className = 'field-grid anit-create-form';
