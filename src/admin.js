@@ -173,7 +173,7 @@ function clearMessage() {
 function roleAllowed(section, role) {
   if (['president','vice_president'].includes(role)) return true;
   const key = SECTION_PERMISSION[section];
-  return Boolean(key && (currentPermissions.has(key + '.read') || currentPermissions.has(key + '.manage') || currentPermissions.has('*')));
+  return Boolean(key && (currentPermissions.has(key + '.read') || currentPermissions.has(key + '.manage')));
 }
 function canManage(table) {
   if (['president','vice_president'].includes(currentProfile?.role)) return true;
@@ -1452,7 +1452,7 @@ async function renderReports(panel){
 }
 
 async function loadSettings() {
-  if(!['administrator','president','vice_president'].includes(currentProfile.role)) return;
+  if(!['president','vice_president'].includes(currentProfile.role)) return;
   const canEditSettings=['president','vice_president'].includes(currentProfile.role);
   const section=document.getElementById('configuracoes');
   if(!section || document.getElementById('anit-settings')) return;
@@ -1530,7 +1530,7 @@ async function boot() {
   await loadAudit();
   await loadUsersAndPermissions();
   await loadReports();
-  if (['administrator','president','vice_president'].includes(currentProfile.role)) await loadSettings();
+  if (['president','vice_president'].includes(currentProfile.role)) await loadSettings();
 }
 
 form?.addEventListener('submit', async event => {
