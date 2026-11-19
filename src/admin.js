@@ -1140,10 +1140,20 @@ async function showMeetingDetails(record){
  if(files.error){feedback.textContent=files.error.message;feedback.dataset.kind='error';}else for(const item of files.data||[]){const row=document.createElement('div');row.className='anit-attachment-row';const name=document.createElement('span');name.textContent=item.file_name+' · '+Math.ceil(item.file_size/1024)+' KB';const download=document.createElement('button');download.type='button';download.className='btn btn-light btn-small';download.textContent='Baixar';download.onclick=async()=>{try{const {data,error}=await neon.from('meeting_attachments').select('file_name,content_type,file_data,checksum_sha256').eq('id',item.id).single();if(error)throw error;const raw=data.file_data;if(typeof raw!=='string'||!raw.startsWith('\\x'))throw new Error('Formato binário não reconhecido');const bytes=new Uint8Array(raw.slice(2).match(/.{1,2}/g).map(v=>parseInt(v,16))),hash=await crypto.subtle.digest('SHA-256',bytes),sum=[...new Uint8Array(hash)].map(v=>v.toString(16).padStart(2,'0')).join('');if(sum!==data.checksum_sha256)throw new Error('Falha na integridade SHA-256');const url=URL.createObjectURL(new Blob([bytes],{type:data.content_type})),a=document.createElement('a');a.href=url;a.download=data.file_name;a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1500);}catch(e){feedback.textContent=e.message;feedback.dataset.kind='error';}};row.append(name,download);area.append(row);}
 }
 
+async function renderMeetingCalendar(){
+ const area=document.querySelector('#data-meetings .anit-meeting-calendar');if(!area)return;
+ const result=await neon.from('meetings').select('id,meeting_number,title,meeting_type,starts_at,location,status,meeting_mode').order('starts_at').limit(300);area.replaceChildren();
+ const h=document.createElement('h3');h.textContent='Agenda institucional';area.append(h);if(result.error){area.append(document.createTextNode('Falha ao carregar agenda: '+result.error.message));return;}
+ const now=new Date(),rows=result.data||[],future=rows.filter(x=>x.status==='scheduled'&&new Date(x.starts_at)>=now),done=rows.filter(x=>x.status==='held'),cancel=rows.filter(x=>x.status==='cancelled');
+ const stats=document.createElement('p');stats.textContent='Próximas: '+future.length+' · Realizadas: '+done.length+' · Canceladas: '+cancel.length;area.append(stats);
+ const grid=document.createElement('div');grid.className='anit-upcoming-meetings';if(!future.length){const p=document.createElement('p');p.textContent='Nenhuma reunião futura agendada.';grid.append(p);}
+ future.slice(0,8).forEach(x=>{const card=document.createElement('div');card.className='anit-meeting-card';const title=document.createElement('strong');title.textContent=x.title;const p=document.createElement('p');p.textContent=new Date(x.starts_at).toLocaleString('pt-BR')+' · '+(x.location||translateEnum(x.meeting_mode));const b=document.createElement('button');b.type='button';b.className='btn btn-light btn-small';b.textContent='Abrir relatório';b.onclick=()=>showMeetingDetails(x);card.append(title,p,b);grid.append(card);});area.append(grid);
+}
 async function loadTable(module) {
   const panel = document.getElementById('data-' + module.table);
   if (!panel) return;
   const wrap = panel.querySelector('.anit-table-wrap');
+  if (module.table === 'meetings') await renderMeetingCalendar();
   wrap.textContent = 'Carregando registros...';
   const { data, error } = await neon.from(module.table).select('*').order('created_at', { ascending: false }).limit(250);
   if (error) {
