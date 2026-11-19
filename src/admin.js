@@ -171,12 +171,12 @@ function clearMessage() {
 }
 
 function roleAllowed(section, role) {
-  if (['administrator','president','vice_president'].includes(role)) return true;
+  if (['president','vice_president'].includes(role)) return true;
   const key = SECTION_PERMISSION[section];
   return Boolean(key && (currentPermissions.has(key + '.read') || currentPermissions.has(key + '.manage') || currentPermissions.has('*')));
 }
 function canManage(table) {
-  if (['administrator','president','vice_president'].includes(currentProfile?.role)) return true;
+  if (['president','vice_president'].includes(currentProfile?.role)) return true;
   const key = TABLE_PERMISSION[table];
   return Boolean(key && (currentPermissions.has(key + '.manage') || currentPermissions.has('users.manage')));
 }
