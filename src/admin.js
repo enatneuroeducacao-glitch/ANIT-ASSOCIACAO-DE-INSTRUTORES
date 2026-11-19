@@ -316,7 +316,7 @@ async function addDataPanel(module) {
     attachmentInput.type = 'file';
     attachmentInput.name = '_attachments';
     attachmentInput.multiple = true;
-    attachmentInput.accept = '.pdf,.docx,.xlsx,.jpg,.jpeg,.png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png';
+    attachmentInput.accept = '.pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png';
     attachmentLabel.htmlFor = module.table + '-attachments';
     attachmentInput.id = module.table + '-attachments';
     attachmentField.append(attachmentLabel, attachmentInput);
@@ -1208,7 +1208,7 @@ async function loadTable(module) {
       td.textContent = value == null ? '—' : (typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? new Date(value).toLocaleString('pt-BR') : translateEnum(value));
       tr.appendChild(td);
     });
-    if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases'].includes(module.table)) {
+    if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases','meetings'].includes(module.table)) {
       const actions=document.createElement('td');
       if (module.table === 'institutional_relations') {
         const followup=document.createElement('button'); followup.type='button'; followup.className='btn btn-light btn-small'; followup.textContent='Acompanhamento';
