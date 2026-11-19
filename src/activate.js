@@ -87,6 +87,7 @@ form.addEventListener('submit', async event => {
     const { data: profile, error: claimError } = await client.rpc('claim_user_invitation', { p_invite_token: inviteToken });
     if (claimError) throw new Error(claimError.message || 'Não foi possível vincular seu perfil institucional.');
     show('E-mail confirmado e perfil institucional ativado. Você já pode acessar a Central Administrativa da ANIT.', 'success');
+    button.type = 'button';
     button.textContent = 'Ir para a Central Administrativa';
     button.disabled = false;
     button.onclick = () => { window.location.href = './admin.html'; };
