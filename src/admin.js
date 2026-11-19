@@ -1599,33 +1599,31 @@ async function loadTechnicalPanel() {
 
 const PUBLIC_SITE_DEFAULTS = {
   identity_name:'ANIT', identity_descriptor:'ASSOCIAÇÃO NACIONAL DE INSTRUTORES DE TRÂNSITO',
-  topbar_left:'Representação • Valorização • Desenvolvimento profissional',
+  logo_url:'', favicon_url:'', topbar_left:'Representação • Valorização • Desenvolvimento profissional',
   topbar_right:'Uma voz coletiva para quem ensina a conduzir',
-  hero_eyebrow:'Juntos somos mais fortes',
-  hero_title_before:'Valorizar quem ensina é ',
-  hero_title_highlight:'proteger o futuro',
-  hero_title_after:' do trânsito.',
+  hero_eyebrow:'Juntos somos mais fortes',hero_title_before:'Valorizar quem ensina é ',
+  hero_title_highlight:'proteger o futuro',hero_title_after:' do trânsito.',
   hero_description:'A ANIT nasce para fortalecer a voz dos instrutores de trânsito, defender a valorização profissional e contribuir para uma formação de condutores mais segura, humana e responsável.',
-  hero_primary_cta:'Quero fazer parte', hero_secondary_cta:'Conheça nossa atuação',
+  hero_primary_cta:'Quero fazer parte',hero_secondary_cta:'Conheça nossa atuação',
   hero_note:'Representatividade, união e compromisso com a segurança viária.',
   about_panel_title:'A força da categoria começa com a união.',
   about_panel_text:'Uma associação construída para ouvir, conectar e representar os instrutores de trânsito.',
-  about_kicker:'Quem somos', about_title:'Uma entidade a serviço dos instrutores.',
+  about_kicker:'Quem somos',about_title:'Uma entidade a serviço dos instrutores.',
   about_text_1:'A ANIT — Associação Nacional de Instrutores de Trânsito — tem como proposta reunir profissionais, ampliar o diálogo institucional e promover iniciativas que fortaleçam a atividade de instrução de trânsito.',
   about_text_2:'Queremos contribuir para que a experiência, o conhecimento e a responsabilidade dos instrutores sejam reconhecidos como partes essenciais da segurança viária brasileira.',
-  activity_kicker:'Nossa atuação', activity_title:'Mais apoio. Mais conhecimento. Mais reconhecimento.',
+  activity_kicker:'Nossa atuação',activity_title:'Mais apoio. Mais conhecimento. Mais reconhecimento.',
   activity_description:'Uma agenda de trabalho voltada às necessidades reais dos profissionais e ao desenvolvimento da educação para o trânsito.',
-  contact_title:'Vamos conversar?',
-  contact_description:'Envie sua manifestação de interesse, dúvida ou proposta de parceria. Os campos abaixo ajudam a organizar a mensagem para encaminhamento à equipe responsável.',
-  contact_email:'', contact_phone:'', contact_whatsapp:'',
+  contact_title:'Vamos conversar?',contact_description:'Envie sua manifestação de interesse, dúvida ou proposta de parceria.',
+  contact_email:'',contact_phone:'',contact_whatsapp:'',
   footer_description:'Valorização profissional, formação de qualidade e compromisso com um trânsito mais seguro e humano.',
   footer_notice:'Site institucional • Informações sujeitas à confirmação oficial da entidade.',
   seo_title:'ANIT | Associação Nacional de Instrutores de Trânsito',
-  seo_description:'ANIT — Associação Nacional de Instrutores de Trânsito. Representação, valorização profissional, formação e fortalecimento dos instrutores.'
+  seo_description:'ANIT — Associação Nacional de Instrutores de Trânsito. Representação, valorização profissional, formação e fortalecimento dos instrutores.',
+  activities:[],articles:[],gallery:[],faqs:[]
 };
 const PUBLIC_SITE_GROUPS = [
-  {title:'Identidade e cabeçalho',description:'Nome institucional, assinatura e mensagens da faixa superior.',fields:[
-    ['identity_name','Nome / sigla','text'],['identity_descriptor','Descrição abaixo da marca','text'],['topbar_left','Mensagem superior — esquerda','text'],['topbar_right','Mensagem superior — direita','text']
+  {title:'Identidade visual e cabeçalho',description:'Nome, logotipo oficial, favicon e mensagens do cabeçalho. Para imagens, informe um endereço HTTPS público.',fields:[
+    ['identity_name','Nome / sigla','text'],['identity_descriptor','Descrição abaixo da marca','text'],['logo_url','Endereço HTTPS do arquivo da logo oficial','url'],['favicon_url','Endereço HTTPS do favicon','url'],['topbar_left','Mensagem superior — esquerda','text'],['topbar_right','Mensagem superior — direita','text']
   ]},
   {title:'Página inicial',description:'Conteúdo principal exibido no primeiro acesso ao site.',fields:[
     ['hero_eyebrow','Chamada curta','text'],['hero_title_before','Título — início','text'],['hero_title_highlight','Título — trecho destacado','text'],['hero_title_after','Título — final','text'],['hero_description','Texto de apresentação','textarea'],['hero_primary_cta','Botão principal','text'],['hero_secondary_cta','Botão secundário','text'],['hero_note','Frase complementar','text']
@@ -1633,86 +1631,123 @@ const PUBLIC_SITE_GROUPS = [
   {title:'Quem somos',description:'Apresentação institucional e posicionamento da entidade.',fields:[
     ['about_panel_title','Frase em destaque','text'],['about_panel_text','Texto do quadro de destaque','textarea'],['about_kicker','Identificação da seção','text'],['about_title','Título da seção','text'],['about_text_1','Apresentação — parágrafo 1','textarea'],['about_text_2','Apresentação — parágrafo 2','textarea']
   ]},
-  {title:'Atuação institucional',description:'Textos introdutórios da seção de atuação.',fields:[
+  {title:'Atuação — apresentação',description:'Título e introdução da seção. Os cartões de atuação são gerenciados abaixo.',fields:[
     ['activity_kicker','Identificação da seção','text'],['activity_title','Título da seção','text'],['activity_description','Descrição da seção','textarea']
   ]},
-  {title:'Contato e canais oficiais',description:'Informações de contato exibidas no site. Os formulários continuam protegidos e ligados à Central.',fields:[
-    ['contact_title','Título da seção','text'],['contact_description','Texto de apresentação','textarea'],['contact_email','E-mail institucional','email'],['contact_phone','Telefone institucional','tel'],['contact_whatsapp','Link completo do WhatsApp (https://...)','url']
-  ]},
-  {title:'Rodapé e mecanismos de busca',description:'Assinatura final do site e informações exibidas nos resultados de busca.',fields:[
-    ['footer_description','Texto institucional do rodapé','textarea'],['footer_notice','Aviso do rodapé','text'],['seo_title','Título para mecanismos de busca','text'],['seo_description','Descrição para mecanismos de busca','textarea']
+  {title:'Contato, rodapé e SEO',description:'Canais oficiais, assinatura final e informações para mecanismos de busca.',fields:[
+    ['contact_title','Título da seção','text'],['contact_description','Texto de apresentação','textarea'],['contact_email','E-mail institucional','email'],['contact_phone','Telefone institucional','tel'],['contact_whatsapp','Link completo do WhatsApp (https://...)','url'],['footer_description','Texto institucional do rodapé','textarea'],['footer_notice','Aviso do rodapé','text'],['seo_title','Título para mecanismos de busca','text'],['seo_description','Descrição para mecanismos de busca','textarea']
   ]}
 ];
+const PUBLIC_COLLECTIONS = [
+ {key:'activities',title:'Cartões de atuação',description:'Áreas de atuação exibidas na página pública.',fields:[['title','Título','text'],['description','Descrição','textarea'],['icon','Ícone / emoji','text']]},
+ {key:'articles',title:'Artigos',description:'Artigos editoriais exibidos na seção Conhecimento e reflexão.',fields:[['title','Título do artigo','text'],['category','Categoria','text'],['summary','Resumo','textarea'],['author','Autor','text'],['image_url','Imagem de capa (URL HTTPS)','url'],['article_url','Link para o artigo completo (opcional)','url']]},
+ {key:'gallery',title:'Galeria de imagens',description:'Fotografias e materiais visuais. Use imagens autorizadas e URLs HTTPS públicas.',fields:[['title','Título / legenda','text'],['image_url','Imagem (URL HTTPS)','url'],['caption','Descrição / crédito','textarea'],['event_date','Data (opcional)','date']]},
+ {key:'faqs',title:'Perguntas frequentes',description:'Perguntas e respostas exibidas na seção Dúvidas.',fields:[['question','Pergunta','text'],['answer','Resposta','textarea']]}
+];
+function safePublicImageUrl(value){try{const u=new URL(value);return u.protocol==='https:'?u.href:null}catch{return null}}
 async function loadSettings() {
   if(!['president','vice_president'].includes(currentProfile.role)) return;
   const section=document.getElementById('configuracoes');
   if(!section || document.getElementById('anit-settings')) return;
   section.querySelectorAll('.panel,.module-grid').forEach(node=>node.remove());
   const panel=document.createElement('div');panel.id='anit-settings';panel.className='panel anit-data-panel';
-  panel.innerHTML='<div class="panel-head"><div><h2>Central de configurações do site público</h2><p class="muted">Edite os conteúdos institucionais e publique as alterações no portal da ANIT.</p></div><a class="btn btn-light" href="./index.html" target="_blank" rel="noopener">Visualizar site ↗</a></div><div class="anit-site-settings-status" role="status">Carregando configurações...</div><form id="anit-public-site-form"></form><div class="anit-settings-actions"><button class="btn btn-primary" type="submit" form="anit-public-site-form">Salvar e publicar alterações</button><button class="btn btn-light" type="button" id="anit-site-reset">Restaurar textos padrão</button></div><p class="anit-feedback" role="status"></p><div class="anit-settings-meta"></div><details class="anit-advanced-settings"><summary>Configurações técnicas em JSON</summary><p class="muted">Área avançada para manutenção. Evite alterar chaves sem orientação técnica.</p><form id="anit-advanced-form" class="field-grid anit-create-form"><div class="field"><label>Chave técnica</label><input name="setting_key" required placeholder="ex.: public_site_extra"></div><div class="field full"><label>Valor em JSON</label><textarea name="setting_value" rows="4" required placeholder="{&quot;value&quot;:&quot;...&quot;}"></textarea></div><button class="btn btn-light" type="submit">Salvar configuração técnica</button></form><div class="anit-settings-table"></div></details>';
+  panel.innerHTML='<div class="panel-head"><div><h2>Gerenciador completo do site público</h2><p class="muted">Administre identidade visual, páginas, notícias, artigos, galeria e dúvidas frequentes.</p></div><a class="btn btn-light" href="./index.html" target="_blank" rel="noopener">Visualizar site ↗</a></div><div class="anit-site-settings-status" role="status">Carregando configurações...</div><div class="anit-cms-shortcuts"><a class="btn btn-light" href="#comunicacao">Abrir notícias e comunicados na Central</a><a class="btn btn-light" href="./index.html#noticias" target="_blank" rel="noopener">Ver notícias no site ↗</a></div><form id="anit-public-site-form"></form><div class="anit-settings-actions"><button class="btn btn-primary" type="submit" form="anit-public-site-form">Salvar e publicar alterações</button><button class="btn btn-light" type="button" id="anit-site-reset">Restaurar textos padrão</button></div><p class="anit-feedback" role="status"></p><details class="anit-advanced-settings"><summary>Configurações técnicas em JSON</summary><p class="muted">Área avançada para manutenção. Evite alterar chaves sem orientação técnica.</p><form id="anit-advanced-form" class="field-grid anit-create-form"><div class="field"><label>Chave técnica</label><input name="setting_key" required placeholder="ex.: public_site_extra"></div><div class="field full"><label>Valor em JSON</label><textarea name="setting_value" rows="4" required placeholder="{&quot;value&quot;:&quot;...&quot;}"></textarea></div><button class="btn btn-light" type="submit">Salvar configuração técnica</button></form><div class="anit-settings-table"></div></details>';
   section.appendChild(panel);
-  const form=panel.querySelector('#anit-public-site-form');
-  const status=panel.querySelector('.anit-site-settings-status');
-  const feedback=panel.querySelector('.anit-feedback');
+  const form=panel.querySelector('#anit-public-site-form'),status=panel.querySelector('.anit-site-settings-status'),feedback=panel.querySelector('.anit-feedback');
   let saved={...PUBLIC_SITE_DEFAULTS};
   const {data,error}=await neon.from('system_settings').select('setting_value,updated_at').eq('setting_key','public_site').maybeSingle();
-  if(error){status.textContent='Não foi possível carregar as configurações do site: '+error.message;status.dataset.kind='error';return;}
-  if(data?.setting_value && typeof data.setting_value==='object') saved={...saved,...data.setting_value};
+  if(error){status.textContent='Não foi possível carregar as configurações: '+error.message;status.dataset.kind='error';return;}
+  if(data?.setting_value&&typeof data.setting_value==='object')saved={...saved,...data.setting_value};
   PUBLIC_SITE_GROUPS.forEach(group=>{
     const card=document.createElement('section');card.className='anit-site-settings-group';
     const heading=document.createElement('div');heading.className='anit-site-settings-heading';
-    const title=document.createElement('h3');title.textContent=group.title;
-    const description=document.createElement('p');description.textContent=group.description;
-    heading.append(title,description);card.append(heading);
+    const title=document.createElement('h3');title.textContent=group.title;const desc=document.createElement('p');desc.textContent=group.description;heading.append(title,desc);card.append(heading);
     const grid=document.createElement('div');grid.className='anit-site-settings-grid';
     group.fields.forEach(([key,label,type])=>{
       const field=document.createElement('div');field.className='field'+(type==='textarea'?' full':'');
       const caption=document.createElement('label');caption.htmlFor='site-'+key;caption.textContent=label;
-      const input=type==='textarea'?document.createElement('textarea'):document.createElement('input');
-      input.id='site-'+key;input.name=key;input.type=type==='textarea'?'text':type;
-      if(type==='textarea')input.rows=3;
-      input.value=saved[key]??'';
-      field.append(caption,input);grid.append(field);
-    });
-    card.append(grid);form.append(card);
+      const input=type==='textarea'?document.createElement('textarea'):document.createElement('input');input.id='site-'+key;input.name=key;input.type=type==='textarea'?'text':type;if(type==='textarea')input.rows=3;input.value=saved[key]??'';
+      field.append(caption,input);
+      if(key==='logo_url'||key==='favicon_url'){const preview=document.createElement('img');preview.className='anit-logo-preview';preview.alt='Pré-visualização da imagem';preview.hidden=true;const update=()=>{const url=safePublicImageUrl(input.value);preview.hidden=!url;if(url)preview.src=url;};input.addEventListener('input',update);update();field.append(preview);}
+      grid.append(field);
+    });card.append(grid);form.append(card);
   });
-  status.textContent=data?.updated_at?'Última publicação: '+new Date(data.updated_at).toLocaleString('pt-BR'):'Nenhuma personalização salva ainda. O site está usando os textos padrão.';
+  const collectionRoot=document.createElement('div');collectionRoot.className='anit-cms-collections';
+  const collectionHeading=document.createElement('div');collectionHeading.className='anit-site-settings-heading';const collectionTitle=document.createElement('h3');collectionTitle.textContent='Conteúdo das seções';const collectionDesc=document.createElement('p');collectionDesc.textContent='Cadastre, edite, remova e reorganize os itens que aparecem no portal.';collectionHeading.append(collectionTitle,collectionDesc);collectionRoot.append(collectionHeading);
+  const collectionsState={};PUBLIC_COLLECTIONS.forEach(collection=>{collectionsState[collection.key]=Array.isArray(saved[collection.key])?saved[collection.key]:[];renderPublicCollection(collection,collectionRoot,collectionsState,feedback);});
+  form.append(collectionRoot);
+  status.textContent=data?.updated_at?'Última atualização: '+new Date(data.updated_at).toLocaleString('pt-BR'):'Nenhuma personalização salva. O portal usa o conteúdo inicial.';
   form.addEventListener('submit',async event=>{
-    event.preventDefault();feedback.textContent='';const values={...PUBLIC_SITE_DEFAULTS};
+    event.preventDefault();feedback.textContent='';
+    const values={...PUBLIC_SITE_DEFAULTS,...saved};
     PUBLIC_SITE_GROUPS.forEach(group=>group.fields.forEach(([key])=>{values[key]=String(form.elements[key]?.value??'').trim();}));
-    const save=panel.querySelector('button[form="anit-public-site-form"]');
-    save.disabled=true;save.textContent='Publicando...';
+    PUBLIC_COLLECTIONS.forEach(collection=>{values[collection.key]=collectionsState[collection.key];});
+    for(const key of ['logo_url','favicon_url','contact_whatsapp']){if(values[key]&&!safePublicImageUrl(values[key])&&key!=='contact_whatsapp'){feedback.textContent='Use um endereço HTTPS válido para '+key+'.';feedback.dataset.kind='error';return;}}
+    if(values.contact_whatsapp&&!/^https:\/\//i.test(values.contact_whatsapp)){feedback.textContent='O link do WhatsApp deve começar com https://.';feedback.dataset.kind='error';return;}
+    const save=panel.querySelector('button[form="anit-public-site-form"]');save.disabled=true;save.textContent='Salvando e publicando...';
     const {error:saveError}=await neon.from('system_settings').upsert({setting_key:'public_site',setting_value:values,updated_by:currentUser.id},{onConflict:'setting_key'});
     save.disabled=false;save.textContent='Salvar e publicar alterações';
     if(saveError){feedback.textContent='Não foi possível publicar: '+saveError.message;feedback.dataset.kind='error';return;}
-    saved=values;feedback.textContent='Configurações salvas. As alterações já estão disponíveis no site público.';feedback.dataset.kind='success';
-    status.textContent='Última publicação: '+new Date().toLocaleString('pt-BR');
-    await renderAdvancedSettings(panel);
+    saved=values;feedback.textContent='Conteúdo salvo. As alterações já estão disponíveis no site público.';feedback.dataset.kind='success';status.textContent='Última atualização: '+new Date().toLocaleString('pt-BR');await renderAdvancedSettings(panel);
   });
   panel.querySelector('#anit-site-reset').addEventListener('click',()=>{
-    if(!confirm('Restaurar os textos padrão? Isso substitui as personalizações atuais após clicar em Salvar e publicar.'))return;
+    if(!confirm('Restaurar os textos padrão? As listas de artigos, atuação, galeria e dúvidas serão preservadas.'))return;
     PUBLIC_SITE_GROUPS.forEach(group=>group.fields.forEach(([key])=>{form.elements[key].value=PUBLIC_SITE_DEFAULTS[key]??'';}));
-    feedback.textContent='Textos padrão carregados no formulário. Clique em Salvar e publicar para aplicar no site.';
-    feedback.dataset.kind='success';
+    feedback.textContent='Textos padrão carregados no formulário. Clique em Salvar e publicar para aplicar.';feedback.dataset.kind='success';
   });
   panel.querySelector('#anit-advanced-form').addEventListener('submit',async event=>{
-    event.preventDefault();const raw=Object.fromEntries(new FormData(event.currentTarget).entries());let value;
-    try{value=JSON.parse(raw.setting_value);}catch{feedback.textContent='O valor precisa ser um JSON válido.';feedback.dataset.kind='error';return;}
+    event.preventDefault();const raw=Object.fromEntries(new FormData(event.currentTarget).entries());let value;try{value=JSON.parse(raw.setting_value);}catch{feedback.textContent='O valor precisa ser um JSON válido.';feedback.dataset.kind='error';return;}
     const {error:saveError}=await neon.from('system_settings').upsert({setting_key:raw.setting_key.trim(),setting_value:value,updated_by:currentUser.id},{onConflict:'setting_key'});
     if(saveError){feedback.textContent='Não foi possível salvar: '+saveError.message;feedback.dataset.kind='error';return;}
     feedback.textContent='Configuração técnica salva.';feedback.dataset.kind='success';event.currentTarget.reset();await renderAdvancedSettings(panel);
   });
   await renderAdvancedSettings(panel);
 }
+function renderPublicCollection(collection,root,state,feedback){
+  const card=document.createElement('section');card.className='anit-site-settings-group anit-content-manager';
+  const heading=document.createElement('div');heading.className='anit-site-settings-heading';const title=document.createElement('h3');title.textContent=collection.title;const desc=document.createElement('p');desc.textContent=collection.description;heading.append(title,desc);card.append(heading);
+  const list=document.createElement('div');list.className='anit-content-list';
+  const draw=()=>{
+    list.replaceChildren();
+    state[collection.key].forEach((item,index)=>{
+      const row=document.createElement('article');row.className='anit-content-item';
+      const info=document.createElement('div');const name=document.createElement('strong');name.textContent=item.title||item.question||'Item sem título';const detail=document.createElement('p');detail.textContent=item.summary||item.description||item.answer||item.caption||item.category||'';info.append(name,detail);
+      const actions=document.createElement('div');actions.className='anit-content-actions';
+      const edit=document.createElement('button');edit.type='button';edit.className='btn btn-light btn-small';edit.textContent='Editar';edit.addEventListener('click',()=>openEditor(item,index));
+      const up=document.createElement('button');up.type='button';up.className='btn btn-light btn-small';up.textContent='↑';up.disabled=index===0;up.addEventListener('click',()=>{const arr=state[collection.key];[arr[index-1],arr[index]]=[arr[index],arr[index-1]];draw();});
+      const down=document.createElement('button');down.type='button';down.className='btn btn-light btn-small';down.textContent='↓';down.disabled=index===state[collection.key].length-1;down.addEventListener('click',()=>{const arr=state[collection.key];[arr[index+1],arr[index]]=[arr[index],arr[index+1]];draw();});
+      const del=document.createElement('button');del.type='button';del.className='btn btn-danger btn-small';del.textContent='Excluir';del.addEventListener('click',()=>{if(!confirm('Excluir este item? A remoção será efetivada ao salvar as alterações.'))return;state[collection.key].splice(index,1);draw();});
+      actions.append(edit,up,down,del);row.append(info,actions);list.append(row);
+    });
+    if(!state[collection.key].length){const empty=document.createElement('p');empty.className='muted';empty.textContent='Nenhum item cadastrado.';list.append(empty);}
+  };
+  const editor=document.createElement('form');editor.className='anit-content-editor';editor.hidden=true;
+  const openEditor=(item={},index=-1)=>{
+    editor.replaceChildren();editor.dataset.index=String(index);
+    collection.fields.forEach(([key,label,type])=>{
+      const field=document.createElement('div');field.className='field'+(type==='textarea'?' full':'');const caption=document.createElement('label');caption.textContent=label;
+      const input=type==='textarea'?document.createElement('textarea'):document.createElement('input');input.name=key;input.type=type==='textarea'?'text':type;if(type==='textarea')input.rows=3;input.value=item[key]||'';field.append(caption,input);
+      if(key==='image_url'){const preview=document.createElement('img');preview.className='anit-logo-preview';preview.alt='Pré-visualização da imagem';const update=()=>{const url=safePublicImageUrl(input.value);preview.hidden=!url;if(url)preview.src=url;};input.addEventListener('input',update);update();field.append(preview);}
+      editor.append(field);
+    });
+    const save=document.createElement('button');save.type='submit';save.className='btn btn-primary';save.textContent=index<0?'Adicionar item':'Salvar edição';
+    const cancel=document.createElement('button');cancel.type='button';cancel.className='btn btn-light';cancel.textContent='Cancelar';cancel.addEventListener('click',()=>{editor.hidden=true;});
+    const actions=document.createElement('div');actions.className='anit-settings-actions';actions.append(save,cancel);editor.append(actions);editor.hidden=false;
+  };
+  editor.addEventListener('submit',event=>{
+    event.preventDefault();const item=Object.fromEntries(new FormData(editor).entries());
+    for(const [key,label,type] of collection.fields){if(!String(item[key]||'').trim()){feedback.textContent='Preencha o campo: '+label;feedback.dataset.kind='error';return;}if(type==='url'&&item[key]&&!safePublicImageUrl(item[key])){feedback.textContent='Informe um endereço HTTPS válido em '+label+'.';feedback.dataset.kind='error';return;}}
+    const index=Number(editor.dataset.index);if(index<0)state[collection.key].push(item);else state[collection.key][index]=item;
+    editor.hidden=true;draw();feedback.textContent='Item atualizado no rascunho. Clique em Salvar e publicar alterações para enviar ao site.';feedback.dataset.kind='success';
+  });
+  const add=document.createElement('button');add.type='button';add.className='btn btn-light';add.textContent='+ Adicionar '+collection.title.toLowerCase().replace(/s$/,'');add.addEventListener('click',()=>openEditor({},-1));
+  card.append(add,editor,list);root.append(card);draw();
+}
 async function renderAdvancedSettings(panel){
-  const wrap=panel.querySelector('.anit-settings-table');
-  const {data,error}=await neon.from('system_settings').select('setting_key,setting_value,updated_at').neq('setting_key','public_site').order('setting_key');
+  const wrap=panel.querySelector('.anit-settings-table');const {data,error}=await neon.from('system_settings').select('setting_key,setting_value,updated_at').neq('setting_key','public_site').order('setting_key');
   if(error){wrap.textContent='Não foi possível consultar as configurações técnicas: '+error.message;return;}
-  const table=document.createElement('table');const thead=document.createElement('thead');const hr=document.createElement('tr');
-  ['Chave técnica','Valor','Atualizada em'].forEach(label=>{const th=document.createElement('th');th.textContent=label;hr.append(th);});thead.append(hr);table.append(thead);
-  const body=document.createElement('tbody');
-  (data||[]).forEach(item=>{const tr=document.createElement('tr');[item.setting_key,JSON.stringify(item.setting_value),new Date(item.updated_at).toLocaleString('pt-BR')].forEach(value=>{const td=document.createElement('td');td.textContent=value;tr.append(td);});body.append(tr);});
-  table.append(body);const frame=document.createElement('div');frame.className='table-wrap';frame.append(table);wrap.replaceChildren(frame);
+  const table=document.createElement('table'),thead=document.createElement('thead'),hr=document.createElement('tr');['Chave técnica','Valor','Atualizada em'].forEach(label=>{const th=document.createElement('th');th.textContent=label;hr.append(th);});thead.append(hr);table.append(thead);
+  const body=document.createElement('tbody');(data||[]).forEach(item=>{const tr=document.createElement('tr');[item.setting_key,JSON.stringify(item.setting_value),new Date(item.updated_at).toLocaleString('pt-BR')].forEach(value=>{const td=document.createElement('td');td.textContent=value;tr.append(td);});body.append(tr);});table.append(body);const frame=document.createElement('div');frame.className='table-wrap';frame.append(table);wrap.replaceChildren(frame);
 }
 async function boot() {
   if (!AUTH_URL || !DATA_API_URL) {
@@ -1855,6 +1890,8 @@ document.addEventListener('DOMContentLoaded', () => {
     .anit-settings-meta{color:var(--muted);font-size:.8rem;margin:10px 0}
     .anit-advanced-settings{margin-top:24px;padding:14px;border:1px dashed var(--line);border-radius:12px}
     .anit-advanced-settings summary{cursor:pointer;font-weight:800;color:var(--navy)}
+    .anit-cms-shortcuts{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 18px}.anit-logo-preview{display:block;max-width:220px;max-height:110px;object-fit:contain;margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:8px;background:#fff}.anit-content-list{display:grid;gap:10px;margin-top:16px}.anit-content-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fbfcfe}.anit-content-item p{margin:4px 0 0;color:var(--muted);font-size:.85rem}.anit-content-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}.anit-content-editor{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px;margin:14px 0;background:#f5f8fb;border:1px solid var(--line);border-radius:12px}.anit-content-editor[hidden]{display:none}.anit-content-editor .field{min-width:0}.anit-content-editor input,.anit-content-editor textarea{width:100%;padding:10px;border:1px solid #cbd8e4;border-radius:8px;font:inherit}.anit-content-editor .full{grid-column:1/-1}.anit-brand-logo{width:100%;height:100%;object-fit:contain;border-radius:inherit}.anit-managed-cover{width:100%;height:190px;object-fit:cover;border-radius:12px 12px 0 0}.anit-gallery-item{margin:0;overflow:hidden}.anit-gallery-item img{width:100%;height:220px;object-fit:cover;display:block}.anit-gallery-item figcaption{display:grid;gap:5px;padding:12px}.anit-content-author{font-size:.84rem;color:var(--muted)}
+    @media(max-width:700px){.anit-content-editor{grid-template-columns:1fr}.anit-content-item{align-items:flex-start;flex-direction:column}.anit-content-actions{justify-content:flex-start}}
     @media(max-width:700px){.anit-site-settings-grid{grid-template-columns:1fr}.anit-site-settings-group{padding:15px}}
   `;
   document.head.appendChild(styles);

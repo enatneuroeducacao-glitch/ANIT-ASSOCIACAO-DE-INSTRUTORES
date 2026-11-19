@@ -193,6 +193,28 @@ function setText(selector,value){
 function safeWebUrl(value){
   try{const url=new URL(value);return ['https:','http:'].includes(url.protocol)?url.href:null}catch{return null}
 }
+function safeManagedImage(value){try{const u=new URL(value);return u.protocol==='https:'?u.href:null}catch{return null}}
+function renderManagedPublicContent(settings){
+  if(settings.logo_url){
+    const logo=safeManagedImage(settings.logo_url);
+    if(logo)document.querySelectorAll('.brand-mark').forEach(node=>{const img=document.createElement('img');img.src=logo;img.alt='Logotipo oficial da ANIT';img.className='anit-brand-logo';node.replaceChildren(img);});
+  }
+  if(settings.favicon_url){const url=safeManagedImage(settings.favicon_url);if(url){let link=document.querySelector('link[rel="icon"]');if(!link){link=document.createElement('link');link.rel='icon';document.head.append(link);}link.href=url;}}
+  if(Array.isArray(settings.activities)&&settings.activities.length){
+    const root=document.querySelector('#atuacao .cards');if(root){root.replaceChildren();settings.activities.forEach(item=>{const card=document.createElement('article');card.className='card';const icon=document.createElement('div');icon.className='card-icon';icon.textContent=item.icon||'✦';const title=document.createElement('h3');title.textContent=item.title||'';const desc=document.createElement('p');desc.textContent=item.description||'';card.append(icon,title,desc);root.append(card);});}
+  }
+  if(Array.isArray(settings.articles)&&settings.articles.length){
+    const root=document.querySelector('#artigos .editorial-grid');if(root){root.replaceChildren();settings.articles.forEach(item=>{const card=document.createElement('article');card.className='editorial-card';const image=safeManagedImage(item.image_url);if(image){const img=document.createElement('img');img.className='anit-managed-cover';img.src=image;img.alt=item.title||'Imagem do artigo';img.loading='lazy';card.append(img);}else{const art=document.createElement('div');art.className='editorial-art';art.textContent=item.category||'Artigo';card.append(art);}const body=document.createElement('div');body.className='editorial-body';const tag=document.createElement('span');tag.className='editorial-tag';tag.textContent=item.category||'Artigo';const title=document.createElement('h3');title.textContent=item.title||'';const summary=document.createElement('p');summary.textContent=item.summary||'';body.append(tag,title,summary);if(item.author){const author=document.createElement('p');author.className='anit-content-author';author.textContent='Por '+item.author;body.append(author);}const url=safeManagedImage(item.article_url);if(url){const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Ler artigo completo →';body.append(link);}card.append(body);root.append(card);});}
+    document.querySelector('#artigos .small-note')?.remove();
+  }
+  if(Array.isArray(settings.gallery)&&settings.gallery.length){
+    const root=document.querySelector('#galeria .gallery-grid');if(root){root.replaceChildren();settings.gallery.forEach(item=>{const tile=document.createElement('figure');tile.className='gallery-tile anit-gallery-item';const image=safeManagedImage(item.image_url);if(image){const img=document.createElement('img');img.src=image;img.alt=item.title||item.caption||'Imagem da ANIT';img.loading='lazy';tile.append(img);}const caption=document.createElement('figcaption');const title=document.createElement('strong');title.textContent=item.title||'';const desc=document.createElement('span');desc.textContent=[item.caption,item.event_date].filter(Boolean).join(' • ');caption.append(title,desc);tile.append(caption);root.append(tile);});}
+    document.querySelector('#galeria .small-note')?.remove();
+  }
+  if(Array.isArray(settings.faqs)&&settings.faqs.length){
+    const root=document.querySelector('#duvidas .faq');if(root){root.replaceChildren();settings.faqs.forEach(item=>{const details=document.createElement('details');const question=document.createElement('summary');question.textContent=item.question||'';const answer=document.createElement('p');answer.textContent=item.answer||'';details.append(question,answer);root.append(details);});}
+  }
+}
 async function loadPublicSiteSettings(){
   if(!NEON_DATA_API_URL)return;
   try{
@@ -203,7 +225,8 @@ async function loadPublicSiteSettings(){
     const settings=await response.json();
     if(!settings||typeof settings!=='object'||Array.isArray(settings))return;
 
-    if(settings.identity_name){
+    renderManagedPublicContent(settings);
+        if(settings.identity_name){
       document.querySelectorAll('.brand-mark').forEach(node=>node.textContent=settings.identity_name);
       document.querySelectorAll('.brand span:nth-child(2)').forEach(node=>{if(node.firstChild&&node.firstChild.nodeType===Node.TEXT_NODE)node.firstChild.nodeValue=settings.identity_name;});
     }
