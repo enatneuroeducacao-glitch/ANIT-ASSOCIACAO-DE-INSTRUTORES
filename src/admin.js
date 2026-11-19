@@ -73,7 +73,7 @@ const COLUMN_LABELS = {
   contact_name: 'Nome do contato', next_action_at: 'Próxima ação', relation_type: 'Natureza da relação', institution_type: 'Tipo de instituição', channel: 'Canal de contato', last_contact_at: 'Último contato',
   meeting_type: 'Tipo de reunião', starts_at: 'Início', ends_at: 'Término',
   location: 'Local', channel: 'Canal', audience: 'Público',
-  scheduled_at: 'Agendamento', priority: 'Prioridade',
+  scheduled_at: 'Agendamento', published_at: 'Data de publicação', category: 'Tipo de publicação', summary: 'Resumo / chamada', body: 'Conteúdo', cover_image_url: 'Imagem de capa', attachment_url: 'Documento anexo', attachment_label: 'Nome do anexo', priority: 'Prioridade',
   responsible_user_id: 'Responsável',
   norm_type: 'Tipo de norma', issuing_body: 'Órgão emissor',
   reference_number: 'Número / identificação', jurisdiction: 'Abrangência',
@@ -144,8 +144,8 @@ const MODULES = [
   { section: 'reunioes', table: 'meetings', title: 'Agenda e reuniões', columns: ['meeting_number','title','meeting_type','starts_at','location','status'], fields: [
     ['title','Título da reunião','text',true],['meeting_type','Tipo de reunião','select',true,['assembleia_geral','diretoria','conselho_fiscal','comissao','extraordinaria','institucional','outra']],['starts_at','Início','datetime-local',true],['ends_at','Término','datetime-local'],['meeting_mode','Modalidade','select',true,['presencial','online','hibrida']],['location','Local / endereço','text'],['meeting_link','Link da reunião','url'],['organizer','Responsável pela convocação','text'],['participants_summary','Participantes / convidados','textarea'],['agenda','Pauta e ordem do dia','textarea',true],['report_body','Relato e resumo da reunião','textarea'],['decisions','Deliberações e decisões','textarea'],['status','Situação','select',true,['scheduled','held','cancelled']]
   ]},
-  { section: 'comunicacao', table: 'communications', title: 'Comunicação institucional', columns: ['title','channel','audience','scheduled_at','status'], fields: [
-    ['title','Título','text',true],['channel','Canal','text'],['audience','Público','text'],['body','Conteúdo','textarea'],['scheduled_at','Agendamento','datetime-local'],['status','Situação','select',false,['draft','scheduled','published','cancelled']]
+  { section: 'comunicacao', table: 'communications', title: 'Comunicação institucional', columns: ['title','category','status','scheduled_at','published_at'], fields: [
+    ['title','Título da publicação','text',true],['category','Tipo de publicação','select',true,['noticia','comunicado_oficial','nota_publica','nota_esclarecimento','nota_repudio','convocacao','circular','informativo','campanha','posicionamento','relatorio','artigo','outro']],['summary','Resumo / chamada','textarea'],['body','Conteúdo completo','textarea',true],['cover_image_url','Endereço da imagem de capa (URL)','url'],['attachment_label','Nome do documento anexo','text'],['attachment_url','Endereço do documento anexo (URL)','url'],['audience','Público destinatário','text'],['channel','Destino','select',true,['public_site','public_site_and_social','internal']],['scheduled_at','Data e horário previstos','datetime-local'],['status','Situação editorial','select',true,['draft','scheduled','cancelled']]
   ]},
   { section: 'demandas', table: 'member_demands', title: 'Demandas dos associados', columns: ['subject','priority','status','due_date','responsible_user_id'], fields: [
     ['subject','Assunto','text',true],['description','Descrição','textarea'],['priority','Prioridade','select',false,['low','normal','high','urgent']],['status','Situação','select',false,['open','in_progress','waiting','resolved','closed']],['due_date','Prazo','date']
@@ -1210,6 +1210,13 @@ async function loadTable(module) {
       if (module.table === 'legal_cases') {
         const followup=document.createElement('button'); followup.type='button'; followup.className='btn btn-light btn-small'; followup.textContent='Acompanhamento';
         followup.addEventListener('click',()=>showLegalCaseDetails(row)); actions.append(followup);
+      }
+      if (module.table === 'communications' && ['president','administrator'].includes(currentProfile.role)) {
+        const publish=document.createElement('button');publish.type='button';publish.className='btn btn-primary btn-small';
+        const future=!!row.scheduled_at && new Date(row.scheduled_at)>new Date();
+        publish.textContent=row.status==='published'?'Publicado':future?'Agendado':'Publicar no portal';
+        publish.disabled=row.status==='published'||future||row.status==='cancelled';
+        publish.addEventListener('click',async()=>{if(!window.confirm('Confirmar a aprovação e publicação deste conteúdo na página pública da ANIT?'))return;publish.disabled=true;const feedback=panel.querySelector('.anit-feedback');const {error}=await neon.rpc('publish_communication',{p_communication_id:row.id});if(error){feedback.textContent='Não foi possível publicar: '+error.message;feedback.dataset.kind='error';publish.disabled=false;return;}feedback.textContent='Publicação aprovada e disponibilizada no portal público.';feedback.dataset.kind='success';await loadTable(module);});actions.append(publish);
       }
       if (module.table === 'official_documents') {
         const attachments = document.createElement('button');
