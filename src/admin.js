@@ -424,6 +424,7 @@ async function addDataPanel(module) {
         let savedDocumentId = editingId;
         if (editingId) {
           if(module.table==='meetings'){const b=document.createElement('button');b.type='button';b.className='btn btn-light btn-small';b.textContent='Relatório e acompanhamento';b.addEventListener('click',()=>showMeetingDetails(row));actions.append(b);}
+      if (module.table === 'meetings') { const b=document.createElement('button'); b.type='button'; b.className='btn btn-light btn-small'; b.textContent='Relatório e acompanhamento'; b.addEventListener('click',()=>showMeetingDetails(row)); actions.append(b); }
       if (module.table === 'institutional_relations') {
           const nextStatus=payload.status || 'active';
           if(!editingId) {
@@ -1194,7 +1195,7 @@ async function loadTable(module) {
     th.textContent = formatColumnLabel(column);
     headerRow.appendChild(th);
   });
-  if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases','institutional_relations'].includes(module.table)) {
+  if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases','institutional_relations','meetings'].includes(module.table)) {
     const th=document.createElement('th'); th.textContent='Ações'; headerRow.appendChild(th);
   }
   head.appendChild(headerRow); table.appendChild(head);
