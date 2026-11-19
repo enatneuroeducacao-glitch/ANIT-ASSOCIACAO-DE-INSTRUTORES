@@ -141,8 +141,8 @@ const MODULES = [
     ['status','Situação atual','select',true,['active','in_contact','awaiting_response','meeting_scheduled','in_negotiation','paused','completed','closed']],
     ['notes','Histórico / observações','textarea']
   ]},
-  { section: 'reunioes', table: 'meetings', title: 'Reuniões e agenda', columns: ['title','meeting_type','starts_at','ends_at','location','status'], fields: [
-    ['title','Título','text',true],['meeting_type','Tipo','text'],['starts_at','Início','datetime-local',true],['ends_at','Término','datetime-local'],['location','Local','text'],['agenda','Pauta','textarea'],['status','Situação','select',false,['scheduled','held','cancelled']]
+  { section: 'reunioes', table: 'meetings', title: 'Agenda e reuniões', columns: ['meeting_number','title','meeting_type','starts_at','location','status'], fields: [
+    ['title','Título da reunião','text',true],['meeting_type','Tipo de reunião','select',true,['assembleia_geral','diretoria','conselho_fiscal','comissao','extraordinaria','institucional','outra']],['starts_at','Início','datetime-local',true],['ends_at','Término','datetime-local'],['meeting_mode','Modalidade','select',true,['presencial','online','hibrida']],['location','Local / endereço','text'],['meeting_link','Link da reunião','url'],['organizer','Responsável pela convocação','text'],['participants_summary','Participantes / convidados','textarea'],['agenda','Pauta e ordem do dia','textarea',true],['report_body','Relato e resumo da reunião','textarea'],['decisions','Deliberações e decisões','textarea'],['status','Situação','select',true,['scheduled','held','cancelled']]
   ]},
   { section: 'comunicacao', table: 'communications', title: 'Comunicação institucional', columns: ['title','channel','audience','scheduled_at','status'], fields: [
     ['title','Título','text',true],['channel','Canal','text'],['audience','Público','text'],['body','Conteúdo','textarea'],['scheduled_at','Agendamento','datetime-local'],['status','Situação','select',false,['draft','scheduled','published','cancelled']]
