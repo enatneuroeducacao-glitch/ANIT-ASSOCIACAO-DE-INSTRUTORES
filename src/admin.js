@@ -900,7 +900,7 @@ async function loadTable(module) {
     th.textContent = formatColumnLabel(column);
     headerRow.appendChild(th);
   });
-  if (canManage(module.table,currentProfile.role) || module.table === 'official_documents') {
+  if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases'].includes(module.table)) {
     const th=document.createElement('th'); th.textContent='Ações'; headerRow.appendChild(th);
   }
   head.appendChild(headerRow); table.appendChild(head);
@@ -913,7 +913,7 @@ async function loadTable(module) {
       td.textContent = value == null ? '—' : (typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? new Date(value).toLocaleString('pt-BR') : translateEnum(value));
       tr.appendChild(td);
     });
-    if (canManage(module.table,currentProfile.role) || module.table === 'official_documents') {
+    if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases'].includes(module.table)) {
       const actions=document.createElement('td');
       if (module.table === 'legal_cases') {
         const followup=document.createElement('button'); followup.type='button'; followup.className='btn btn-light btn-small'; followup.textContent='Acompanhamento';
