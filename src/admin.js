@@ -1399,14 +1399,13 @@ async function loadUsersAndPermissions() {
     <div class="panel-head"><div><h2>Centro de controle institucional</h2><p class="muted">Gestão de identidades, funções e autorizações individuais.</p></div><button class="btn btn-light" id="anit-control-refresh" type="button">Atualizar</button></div>
     <div class="anit-control-stats"></div>
     <div class="panel"><div class="panel-head"><h3>Meu cadastro</h3><span class="muted">Cada usuário pode alterar seu próprio nome.</span></div><form id="anit-own-profile" class="field-grid"><div class="field"><label>Nome completo</label><input name="full_name" required minlength="3"></div><button class="btn btn-primary">Salvar meus dados</button></form><p id="anit-own-feedback" class="anit-feedback"></p></div>
-    ${top?`<div class="panel"><div class="panel-head"><h3>Novo perfil institucional</h3><span class="muted">Apenas Presidência e Vice-presidência podem cadastrar e autorizar contas.</span></div><form id="anit-user-form" class="field-grid">
-      <div class="field full"><label for="anit-user-email">E-mail da conta Neon Auth</label><div style="display:flex;gap:8px;align-items:center"><input id="anit-user-email" name="email" type="email" required autocomplete="off" placeholder="informe o e-mail já cadastrado no sistema"><button class="btn btn-light" id="anit-find-auth-user" type="button">Localizar conta</button></div><small class="muted">A busca localiza somente uma conta existente. Ela não cria credenciais.</small></div>
-      <div class="field"><label>UUID da conta Neon Auth</label><input name="user_id" readonly required placeholder="Será preenchido após a busca"></div>
-      <div class="field"><label>Nome completo</label><input name="full_name" readonly required placeholder="Será preenchido após a busca"></div>
+    ${top?`<div class="panel"><div class="panel-head"><h3>Cadastrar novo integrante</h3><span class="muted">A Presidência autoriza o convite; o integrante cria a própria senha.</span></div><form id="anit-user-form" class="field-grid">
+      <div class="field"><label>Nome completo</label><input name="full_name" required minlength="3" placeholder="Nome do novo integrante"></div>
+      <div class="field"><label>E-mail do integrante</label><input name="email" type="email" required autocomplete="off" placeholder="pessoa@exemplo.com"></div>
       <div class="field"><label>Função institucional</label><select name="role"><option value="treasurer">Tesouraria</option><option value="secretary">Secretaria</option><option value="director">Diretoria</option><option value="administrator">Administrador técnico</option></select></div>
-      <div class="field"><label>Situação</label><select name="active"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
-      <div class="field full"><label>Permissões iniciais da função</label><div id="anit-role-permissions" class="anit-permission-grid"><p class="muted">Localize uma conta e confira as permissões da função selecionada.</p></div><small class="muted">As opções marcadas serão gravadas como permissões efetivas desse usuário. Você pode ajustar antes de salvar.</small></div>
-      <button class="btn btn-primary" type="submit">Salvar perfil e permissões</button></form><p id="anit-user-feedback" class="anit-feedback" role="status"></p></div>`:` `}
+      <div class="field"><label>Ativação</label><input value="Após confirmação do e-mail" readonly></div>
+      <div class="field full"><label>Permissões iniciais da função</label><div id="anit-role-permissions" class="anit-permission-grid"><p class="muted">As permissões padrão serão carregadas conforme a função selecionada.</p></div><small class="muted">Revise as permissões antes de emitir o convite. O acesso só será liberado depois que o integrante confirmar o e-mail e definir a senha.</small></div>
+      <button class="btn btn-primary" type="submit">Emitir convite institucional</button></form><p id="anit-user-feedback" class="anit-feedback" role="status"></p><div id="anit-invitation-result" hidden></div></div>`:` `}
     <div class="panel"><div class="panel-head"><div><h3>Usuários cadastrados</h3><p class="muted">Escolha uma pessoa para administrar os acessos sob sua responsabilidade.</p></div><input id="anit-user-search" class="anit-search" placeholder="Buscar por nome ou UUID"></div><div class="anit-users-table"></div></div>
     <div class="panel"><div class="panel-head"><h3>Permissões individuais</h3></div><div id="anit-user-permission-editor"><p class="muted">Selecione “Gerenciar acessos” em um usuário.</p></div></div>
     <div class="panel"><h3>Regras de governança</h3><ul class="anit-security-list"><li>Somente Presidente e Vice-presidente cadastram usuários e controlam permissões.</li><li>Tesouraria administra acessos do Financeiro.</li><li>Secretaria administra Associados, Demandas, Documentos, Protocolos, Reuniões e Comunicação.</li><li>Demais usuários podem alterar o próprio nome, sem elevar privilégios.</li><li>As permissões são verificadas no banco de dados, não apenas na interface.</li></ul></div>`;
@@ -1432,10 +1431,7 @@ async function loadUsersAndPermissions() {
   const canGrant=key=>top||(role==='treasurer'&&key.startsWith('finance.'))||(role==='secretary'&&['associates.','demands.','documents.','protocols.','meetings.','communications.'].some(p=>key.startsWith(p)));
   const permissionGrid=panel.querySelector('#anit-role-permissions');
   const permissionFeedback=panel.querySelector('#anit-user-feedback');
-  const userEmail=userForm?.elements.namedItem('email');
-  const userId=userForm?.elements.namedItem('user_id');
-  const userName=userForm?.elements.namedItem('full_name');
-  let verifiedAuthAccount=null;
+  const invitationResult=panel.querySelector('#anit-invitation-result');
   function renderRolePermissionDefaults(rows=[]){
     if(!permissionGrid)return;
     const defaults=new Map(rows.map(row=>[row.permission_key,row.allowed===true]));
@@ -1455,43 +1451,37 @@ async function loadUsersAndPermissions() {
     renderRolePermissionDefaults(data||[]);
   }
   if(userForm){
-    const findButton=panel.querySelector('#anit-find-auth-user');
-    findButton.addEventListener('click',async()=>{
-      const email=String(userEmail.value||'').trim().toLowerCase();
-      verifiedAuthAccount=null;userId.value='';userName.value='';
-      permissionFeedback.textContent='';
-      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){permissionFeedback.textContent='Informe um endereço de e-mail válido.';permissionFeedback.dataset.kind='error';return;}
-      findButton.disabled=true;findButton.textContent='Localizando...';
-      const {data,error}=await neon.rpc('find_auth_user_by_email',{p_email:email});
-      findButton.disabled=false;findButton.textContent='Localizar conta';
-      if(error){permissionFeedback.textContent='Falha na busca: '+error.message;permissionFeedback.dataset.kind='error';return;}
-      const account=Array.isArray(data)?data[0]:data;
-      if(!account?.user_id){permissionFeedback.textContent='Nenhuma conta ativa do Neon Auth foi encontrada com esse e-mail. A conta precisa ser criada primeiro.';permissionFeedback.dataset.kind='error';return;}
-      const {data:existing,error:existingError}=await neon.from('user_profiles').select('user_id,full_name,role,active').eq('user_id',account.user_id).maybeSingle();
-      if(existingError){permissionFeedback.textContent='A conta foi localizada, mas não foi possível verificar se já possui perfil: '+existingError.message;permissionFeedback.dataset.kind='error';return;}
-      if(existing){permissionFeedback.textContent='Esta conta já possui perfil institucional ('+(ROLE_LABELS[existing.role]||existing.role)+'). Use “Editar perfil” na lista de usuários.';permissionFeedback.dataset.kind='error';return;}
-      verifiedAuthAccount={user_id:account.user_id,email:account.email};
-      userId.value=account.user_id;userName.value=account.full_name||'';
-      permissionFeedback.textContent='Conta localizada e validada. Confira a função e as permissões antes de salvar.';
-      permissionFeedback.dataset.kind='success';
-      await loadRolePermissionDefaults();
-    });
     userForm.elements.role.addEventListener('change',loadRolePermissionDefaults);
     userForm.addEventListener('submit',async event=>{
       event.preventDefault();
-      if(!verifiedAuthAccount||userId.value!==verifiedAuthAccount.user_id||userEmail.value.trim().toLowerCase()!==verifiedAuthAccount.email.toLowerCase()){
-        permissionFeedback.textContent='Localize e valide a conta pelo e-mail antes de salvar.';permissionFeedback.dataset.kind='error';return;
-      }
+      permissionFeedback.textContent='';
+      invitationResult.hidden=true;invitationResult.replaceChildren();
+      const email=String(userForm.elements.email.value||'').trim().toLowerCase();
+      const fullName=String(userForm.elements.full_name.value||'').trim();
+      if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){permissionFeedback.textContent='Informe um endereço de e-mail válido.';permissionFeedback.dataset.kind='error';return;}
+      if(fullName.length<3){permissionFeedback.textContent='Informe o nome completo do integrante.';permissionFeedback.dataset.kind='error';return;}
       const selected=[...permissionGrid.querySelectorAll('input[name="permissions"]:checked')].map(input=>input.value);
-      const payload={p_email:verifiedAuthAccount.email,p_user_id:verifiedAuthAccount.user_id,p_full_name:userName.value.trim(),p_role:userForm.elements.role.value,p_active:userForm.elements.active.value==='true',p_permissions:selected};
-      const saveButton=userForm.querySelector('button[type="submit"]');saveButton.disabled=true;saveButton.textContent='Salvando perfil e permissões...';
-      const {error}=await neon.rpc('create_institutional_profile',payload);
-      saveButton.disabled=false;saveButton.textContent='Salvar perfil e permissões';
-      if(error){permissionFeedback.textContent='Não foi possível concluir o cadastro: '+error.message;permissionFeedback.dataset.kind='error';return;}
-      permissionFeedback.textContent='Perfil institucional e permissões gravados com sucesso. O usuário já pode entrar conforme a situação definida.';
+      const saveButton=userForm.querySelector('button[type="submit"]');
+      saveButton.disabled=true;saveButton.textContent='Emitindo convite...';
+      const {data,error}=await neon.rpc('create_user_invitation',{
+        p_email:email,p_full_name:fullName,p_role:userForm.elements.role.value,p_permissions:selected
+      });
+      saveButton.disabled=false;saveButton.textContent='Emitir convite institucional';
+      if(error){permissionFeedback.textContent='Não foi possível emitir o convite: '+error.message;permissionFeedback.dataset.kind='error';return;}
+      const invite=Array.isArray(data)?data[0]:data;
+      if(!invite?.invite_token){permissionFeedback.textContent='O banco não retornou o código do convite. Atualize a tela e tente novamente.';permissionFeedback.dataset.kind='error';return;}
+      const link=new URL('./activate.html',window.location.href);
+      link.searchParams.set('token',invite.invite_token);
+      link.searchParams.set('email',email);
+      const heading=document.createElement('strong');heading.textContent='Convite emitido com sucesso';
+      const note=document.createElement('p');note.textContent='Compartilhe este link com '+fullName+'. Ele deverá confirmar o e-mail, criar a própria senha e concluir a ativação em até 14 dias.';
+      const linkField=document.createElement('input');linkField.type='text';linkField.readOnly=true;linkField.value=link.toString();linkField.style.width='100%';
+      const copy=document.createElement('button');copy.type='button';copy.className='btn btn-light';copy.textContent='Copiar link de ativação';
+      copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(link.toString());copy.textContent='Link copiado';}catch{linkField.select();document.execCommand('copy');copy.textContent='Link copiado';}});
+      invitationResult.append(heading,note,linkField,copy);invitationResult.hidden=false;
+      permissionFeedback.textContent='O perfil ainda não foi ativado. A ativação ocorrerá após confirmação do e-mail pelo convidado.';
       permissionFeedback.dataset.kind='success';
-      userForm.reset();verifiedAuthAccount=null;userId.value='';userName.value='';
-      await loadRolePermissionDefaults();await renderUsers();
+      userForm.reset();await loadRolePermissionDefaults();
     });
     await loadRolePermissionDefaults();
   }
