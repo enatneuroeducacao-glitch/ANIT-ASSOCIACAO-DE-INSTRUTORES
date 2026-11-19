@@ -197,7 +197,7 @@ function applyRoleVisibility(role) {
 async function addDataPanel(module) {
   const section = document.getElementById(module.section);
   if (!section || document.getElementById('data-' + module.table)) return;
-  section.querySelectorAll('.empty,.module-grid,.notice').forEach(node => node.remove());
+  section.querySelectorAll('.empty,.module-grid').forEach(node => node.remove());
   const panel = document.createElement('div');
   panel.className = 'panel anit-data-panel';
   panel.id = 'data-' + module.table;
@@ -335,6 +335,7 @@ async function addDataPanel(module) {
     input.id = module.table + '-' + name;
     input.name = name;
     if (module.table === 'official_documents' && name === 'version') input.value = '1';
+    if (module.table === 'legal_cases' && name === 'priority') input.value = 'normal';
     if (module.table === 'protocols' && name === 'protocol_number') {
       input.readOnly = true;
       input.placeholder = 'Gerado automaticamente ao iniciar novo protocolo';
