@@ -46,6 +46,10 @@ const ENUM_LABELS = {
   vigente: 'Vigente', 'em revisão': 'Em revisão', substituído: 'Substituído',
   vencido: 'Vencido', arquivado: 'Arquivado',
   administrativa: 'Administrativa', judicial: 'Judicial', extrajudicial: 'Extrajudicial', regulatoria: 'Regulatória', consulta: 'Consulta', representacao: 'Representação',
+  in_contact: 'Em contato', awaiting_response: 'Aguardando resposta', meeting_scheduled: 'Reunião agendada', in_negotiation: 'Em negociação',
+  orgao_publico: 'Órgão público', autarquia: 'Autarquia', entidade_classe: 'Entidade de classe', sindicato: 'Sindicato', universidade: 'Universidade', empresa: 'Empresa', organizacao_social: 'Organização social', outro: 'Outro',
+  oficio: 'Ofício', parceria: 'Parceria', reuniao: 'Reunião', negociacao: 'Negociação', consulta: 'Consulta', cooperacao: 'Cooperação', acompanhamento: 'Acompanhamento',
+  email: 'E-mail', telefone: 'Telefone', reuniao_presencial: 'Reunião presencial', reuniao_online: 'Reunião on-line', whatsapp: 'WhatsApp',
   federal: 'Federal', estadual: 'Estadual', municipal: 'Municipal',
   institucional: 'Institucional'
 };
@@ -66,7 +70,7 @@ const COLUMN_LABELS = {
   issuing_body: 'Órgão emissor / responsável', document_status: 'Situação documental',
   storage_path: 'Arquivo / link seguro', case_number: 'Número do processo',
   institution: 'Órgão/Instituição', deadline: 'Prazo',
-  contact_name: 'Nome do contato', next_action_at: 'Próxima ação',
+  contact_name: 'Nome do contato', next_action_at: 'Próxima ação', relation_type: 'Natureza da relação', institution_type: 'Tipo de instituição', channel: 'Canal de contato', last_contact_at: 'Último contato',
   meeting_type: 'Tipo de reunião', starts_at: 'Início', ends_at: 'Término',
   location: 'Local', channel: 'Canal', audience: 'Público',
   scheduled_at: 'Agendamento', priority: 'Prioridade',
@@ -126,8 +130,16 @@ const MODULES = [
   { section: 'juridico', table: 'legal_references', title: 'Legislação e normas', columns: ['title','norm_type','issuing_body','reference_number','jurisdiction','published_on','effective_on','status'], fields: [
     ['title','Título da norma','text',true],['norm_type','Tipo de norma','select',true,['Lei','Decreto','Resolução','Portaria','Deliberação','Instrução normativa','Medida provisória','Outro']],['issuing_body','Órgão emissor','text'],['reference_number','Número / identificação','text'],['jurisdiction','Abrangência','select',true,['federal','estadual','municipal','institucional']],['published_on','Data de publicação','date'],['effective_on','Início da vigência','date'],['status','Situação','select',true,['draft','active','revoked','repealed']],['source_url','Link da fonte oficial','url'],['summary','Ementa / observações','textarea']
   ]},
-  { section: 'representacao', table: 'institutional_relations', title: 'Relações institucionais', columns: ['institution','contact_name','subject','next_action_at','status'], fields: [
-    ['institution','Instituição','text',true],['contact_name','Contato','text'],['subject','Assunto','text'],['next_action_at','Próxima ação','date'],['status','Situação','select',false,['active','paused','closed']],['notes','Observações','textarea']
+  { section: 'representacao', table: 'institutional_relations', title: 'Relações institucionais', columns: ['institution','institution_type','relation_type','contact_name','subject','priority','status','next_action_at'], fields: [
+    ['institution','Instituição / entidade','text',true],
+    ['institution_type','Tipo de instituição','select',true,['orgao_publico','autarquia','entidade_classe','sindicato','universidade','empresa','organizacao_social','outro']],
+    ['relation_type','Natureza da relação','select',true,['representacao','oficio','parceria','reuniao','negociacao','consulta','cooperacao','acompanhamento']],
+    ['contact_name','Pessoa de contato','text'],['subject','Assunto / pauta principal','text'],
+    ['channel','Canal de contato','select',false,['email','telefone','oficio','reuniao_presencial','reuniao_online','whatsapp','outro']],
+    ['last_contact_at','Último contato','datetime-local'],['next_action_at','Próxima ação / compromisso','datetime-local'],
+    ['priority','Prioridade','select',true,['low','normal','high','urgent']],
+    ['status','Situação atual','select',true,['active','in_contact','awaiting_response','meeting_scheduled','in_negotiation','paused','completed','closed']],
+    ['notes','Histórico / observações','textarea']
   ]},
   { section: 'reunioes', table: 'meetings', title: 'Reuniões e agenda', columns: ['title','meeting_type','starts_at','ends_at','location','status'], fields: [
     ['title','Título','text',true],['meeting_type','Tipo','text'],['starts_at','Início','datetime-local',true],['ends_at','Término','datetime-local'],['location','Local','text'],['agenda','Pauta','textarea'],['status','Situação','select',false,['scheduled','held','cancelled']]
@@ -206,6 +218,9 @@ async function addDataPanel(module) {
   section.appendChild(panel);
   if (module.table === 'legal_cases') {
     const legalArea=document.createElement('div'); legalArea.className='anit-legal-details panel'; legalArea.hidden=true; panel.appendChild(legalArea);
+  }
+  if (module.table === 'institutional_relations') {
+    const relationArea=document.createElement('div'); relationArea.className='anit-legal-details panel'; relationArea.hidden=true; panel.appendChild(relationArea);
   }
   if (module.table === 'official_documents') {
     const attachmentArea = document.createElement('div');
@@ -290,7 +305,7 @@ async function addDataPanel(module) {
     panel.querySelector('.anit-feedback').textContent = '';
   });
   let attachmentInput = null;
-  if (['official_documents','legal_cases'].includes(module.table)) {
+  if (['official_documents','legal_cases','institutional_relations'].includes(module.table)) {
     const attachmentField = document.createElement('div');
     attachmentField.className = 'field';
     attachmentField.style.gridColumn = '1 / -1';
@@ -335,7 +350,7 @@ async function addDataPanel(module) {
     input.id = module.table + '-' + name;
     input.name = name;
     if (module.table === 'official_documents' && name === 'version') input.value = '1';
-    if (module.table === 'legal_cases' && name === 'priority') input.value = 'normal';
+    if (['legal_cases','institutional_relations'].includes(module.table) && name === 'priority') input.value = 'normal';
     if (module.table === 'protocols' && name === 'protocol_number') {
       input.readOnly = true;
       input.placeholder = 'Gerado automaticamente ao iniciar novo protocolo';
@@ -375,7 +390,7 @@ async function addDataPanel(module) {
         feedback.dataset.kind = 'error';
         return;
       }
-      const attachmentFiles = ['official_documents','legal_cases'].includes(module.table)
+      const attachmentFiles = ['official_documents','legal_cases','institutional_relations'].includes(module.table)
         ? [...(attachmentInput?.files || [])].filter(file => file && file.size > 0)
         : [];
       const payload = Object.fromEntries(new FormData(createForm).entries());
@@ -879,6 +894,144 @@ async function showLegalCaseDetails(caseRecord) {
         const {error}=await neon.from('legal_case_attachments').delete().eq('id',item.id);
         if(error){feedback.textContent='Não foi possível excluir: '+error.message;feedback.dataset.kind='error';return;}
         await showLegalCaseDetails(caseRecord);
+      });
+      line.appendChild(remove);
+    }
+    area.appendChild(line);
+  }
+}
+
+async function uploadInstitutionalAttachments(relationId, files) {
+  if (!relationId) throw new Error('Relação institucional não identificada.');
+  if (files.length > 10) throw new Error('Envie no máximo 10 anexos por operação.');
+  for (const file of files) {
+    const extension=(file.name.split('.').pop()||'').toLowerCase();
+    const contentType=LEGAL_ATTACHMENT_TYPES.get(extension);
+    if(!contentType) throw new Error('Formato não permitido: '+file.name);
+    if(file.size>LEGAL_ATTACHMENT_MAX_BYTES) throw new Error('O arquivo '+file.name+' ultrapassa 5 MB.');
+    const buffer=await file.arrayBuffer();
+    const digest=await crypto.subtle.digest('SHA-256',buffer);
+    const checksum=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+    const bytes=new Uint8Array(buffer); let binary='';
+    for(let offset=0;offset<bytes.length;offset+=0x8000) binary+=String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
+    const safeName=Array.from(file.name).map(char=>char==='/'||char===String.fromCharCode(92)||char.charCodeAt(0)<32?'_':char).join('').slice(0,240);
+    const {error}=await neon.rpc('store_institutional_relation_attachment',{
+      p_relation_id:relationId,p_file_name:safeName,p_content_type:contentType,
+      p_file_base64:btoa(binary),p_checksum_sha256:checksum
+    });
+    if(error) throw new Error('Falha ao armazenar '+safeName+': '+error.message);
+  }
+}
+
+async function showInstitutionalRelationDetails(record) {
+  const panel=window.document.getElementById('data-institutional_relations');
+  const feedback=panel?.querySelector('.anit-feedback');
+  const area=panel?.querySelector('.anit-legal-details');
+  if(!panel||!area||!feedback)return;
+  area.replaceChildren(); area.hidden=false;
+  const heading=window.document.createElement('h3');
+  heading.textContent='Acompanhamento institucional — '+record.institution;
+  area.appendChild(heading);
+  const canEdit=canManage('institutional_relations',currentProfile.role);
+  if(canEdit) {
+    const form=window.document.createElement('form'); form.className='field-grid anit-create-form';
+    const dateField=window.document.createElement('div'); dateField.className='field';
+    const dateLabel=window.document.createElement('label'); dateLabel.textContent='Data da movimentação';
+    const dateInput=window.document.createElement('input'); dateInput.type='date'; dateInput.required=true;
+    dateInput.value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+    dateField.append(dateLabel,dateInput);
+    const statusField=window.document.createElement('div'); statusField.className='field';
+    const statusLabel=window.document.createElement('label'); statusLabel.textContent='Nova situação';
+    const statusInput=window.document.createElement('select');
+    ['active','in_contact','awaiting_response','meeting_scheduled','in_negotiation','paused','completed','closed'].forEach(value=>{
+      const option=window.document.createElement('option'); option.value=value; option.textContent=translateEnum(value); statusInput.appendChild(option);
+    });
+    statusInput.value=record.status; statusField.append(statusLabel,statusInput);
+    const notesField=window.document.createElement('div'); notesField.className='field'; notesField.style.gridColumn='1 / -1';
+    const notesLabel=window.document.createElement('label'); notesLabel.textContent='Registro do contato, decisão ou providência';
+    const notesInput=window.document.createElement('textarea'); notesInput.rows=3; notesInput.placeholder='Descreva ofício enviado, reunião, resposta, encaminhamento ou compromisso...';
+    notesField.append(notesLabel,notesInput);
+    const save=window.document.createElement('button'); save.type='submit'; save.className='btn btn-primary'; save.textContent='Registrar movimentação';
+    form.append(dateField,statusField,notesField,save);
+    form.addEventListener('submit',async event=>{
+      event.preventDefault(); save.disabled=true;
+      try {
+        const {error}=await neon.rpc('update_institutional_relation_status',{
+          p_relation_id:record.id,p_new_status:statusInput.value,p_event_date:dateInput.value,p_notes:notesInput.value.trim()||null
+        });
+        if(error)throw error;
+        record.status=statusInput.value;
+        feedback.textContent='Movimentação institucional registrada.';
+        feedback.dataset.kind='success';
+        await loadTable(MODULES.find(item=>item.table==='institutional_relations'));
+        await showInstitutionalRelationDetails(record);
+      } catch(error) {
+        feedback.textContent='Não foi possível registrar a movimentação: '+error.message;
+        feedback.dataset.kind='error';
+      } finally {save.disabled=false;}
+    });
+    area.appendChild(form);
+  }
+  const attachTitle=window.document.createElement('h4'); attachTitle.textContent='Ofícios, documentos e anexos';
+  area.appendChild(attachTitle);
+  if(canEdit) {
+    const label=window.document.createElement('label'); label.className='btn btn-primary btn-small'; label.textContent='Adicionar anexos';
+    const input=window.document.createElement('input'); input.type='file'; input.multiple=true; input.accept='.pdf,.docx,.xlsx,.jpg,.jpeg,.png'; input.hidden=true;
+    input.addEventListener('change',async()=>{
+      const files=[...input.files].filter(file=>file.size>0); if(!files.length)return;
+      label.textContent='Enviando...'; label.style.pointerEvents='none';
+      try {await uploadInstitutionalAttachments(record.id,files); feedback.textContent='Anexos armazenados com segurança.'; feedback.dataset.kind='success'; await showInstitutionalRelationDetails(record);}
+      catch(error){feedback.textContent='Falha no envio: '+error.message;feedback.dataset.kind='error';}
+      finally{label.textContent='Adicionar anexos';label.style.pointerEvents='';input.value='';}
+    });
+    label.appendChild(input); area.appendChild(label);
+  }
+  const [history,files]=await Promise.all([
+    neon.from('institutional_relation_updates').select('id,event_date,previous_status,new_status,notes').eq('relation_id',record.id).order('event_date',{ascending:false}),
+    neon.from('institutional_relation_attachments').select('id,file_name,file_size,created_at').eq('relation_id',record.id).order('created_at',{ascending:false})
+  ]);
+  if(history.error||files.error){feedback.textContent='Falha ao carregar histórico/anexos: '+(history.error?.message||files.error?.message);feedback.dataset.kind='error';return;}
+  const historyTitle=window.document.createElement('h4'); historyTitle.textContent='Histórico de relacionamento';
+  area.appendChild(historyTitle);
+  if(!history.data?.length){const empty=window.document.createElement('p');empty.textContent='Nenhuma movimentação registrada.';area.appendChild(empty);}
+  for(const item of history.data||[]){
+    const line=window.document.createElement('div');line.className='anit-attachment-row';
+    const label=window.document.createElement('span');
+    label.textContent=new Date(item.event_date+'T12:00:00').toLocaleDateString('pt-BR')+' · '+translateEnum(item.new_status)+(item.previous_status?' (anterior: '+translateEnum(item.previous_status)+')':'')+(item.notes?' — '+item.notes:'');
+    line.appendChild(label);area.appendChild(line);
+  }
+  const filesTitle=window.document.createElement('h4');filesTitle.textContent='Arquivos anexados';
+  area.appendChild(filesTitle);
+  if(!files.data?.length){const empty=window.document.createElement('p');empty.textContent='Nenhum anexo cadastrado.';area.appendChild(empty);}
+  for(const item of files.data||[]){
+    const line=window.document.createElement('div');line.className='anit-attachment-row';
+    const label=window.document.createElement('span');label.textContent=item.file_name+' · '+(item.file_size/1024).toFixed(0)+' KB';
+    const download=window.document.createElement('button');download.type='button';download.className='btn btn-light btn-small';download.textContent='Baixar';
+    download.addEventListener('click',async()=>{
+      download.disabled=true;
+      try{
+        const {data:fileRow,error}=await neon.from('institutional_relation_attachments').select('file_name,content_type,file_data,checksum_sha256').eq('id',item.id).single();
+        if(error)throw error;
+        const raw=fileRow.file_data;
+        if(typeof raw!=='string'||!raw.startsWith('\\x'))throw new Error('Formato binário não reconhecido.');
+        const bytes=new Uint8Array(raw.slice(2).match(/.{1,2}/g).map(pair=>parseInt(pair,16)));
+        const digest=await crypto.subtle.digest('SHA-256',bytes);
+        const checksum=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+        if(checksum!==fileRow.checksum_sha256)throw new Error('Falha na verificação de integridade SHA-256.');
+        const url=URL.createObjectURL(new Blob([bytes],{type:fileRow.content_type}));
+        const link=window.document.createElement('a');link.href=url;link.download=fileRow.file_name;link.click();
+        window.setTimeout(()=>URL.revokeObjectURL(url),1500);
+      }catch(error){feedback.textContent='Não foi possível baixar: '+error.message;feedback.dataset.kind='error';}
+      finally{download.disabled=false;}
+    });
+    line.append(label,download);
+    if(canEdit){
+      const remove=window.document.createElement('button');remove.type='button';remove.className='btn btn-danger btn-small';remove.textContent='Excluir';
+      remove.addEventListener('click',async()=>{
+        if(!window.confirm('Excluir este anexo permanentemente?'))return;
+        const {error}=await neon.from('institutional_relation_attachments').delete().eq('id',item.id);
+        if(error){feedback.textContent='Não foi possível excluir: '+error.message;feedback.dataset.kind='error';return;}
+        await showInstitutionalRelationDetails(record);
       });
       line.appendChild(remove);
     }
