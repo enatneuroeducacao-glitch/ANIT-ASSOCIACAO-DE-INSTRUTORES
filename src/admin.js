@@ -147,8 +147,8 @@ const MODULES = [
   { section: 'comunicacao', table: 'communications', title: 'Comunicação institucional', columns: ['title','category','status','scheduled_at','approved_at','published_at'], fields: [
     ['title','Título da publicação','text',true],['category','Tipo de publicação','select',true,['noticia','comunicado_oficial','nota_publica','nota_esclarecimento','nota_repudio','convocacao','circular','informativo','campanha','posicionamento','relatorio','artigo','outro']],['summary','Resumo / chamada','textarea'],['body','Conteúdo completo','textarea',true],['cover_image_url','Endereço da imagem de capa (URL)','url'],['attachment_label','Nome do documento anexo','text'],['attachment_url','Endereço do documento anexo (URL)','url'],['audience','Público destinatário','text'],['channel','Destino','select',true,['public_site','public_site_and_social','internal']],['scheduled_at','Data e horário previstos','datetime-local'],['status','Situação editorial','select',true,['draft','scheduled','cancelled']]
   ]},
-  { section: 'demandas', table: 'member_demands', title: 'Demandas dos associados', columns: ['reference_code','source','requester_name','requester_email','requester_city','subject','category','priority','status','due_date','responsible_user_id','created_at'], fields: [
-    ['subject','Assunto','text',true],['category','Classificação','select',true,['public_contact','membership','financial','legal','institutional','other']],['description','Descrição da solicitação','textarea'],['priority','Prioridade','select',false,['low','normal','high','urgent']],['status','Situação','select',false,['open','in_progress','waiting','resolved','closed']],['responsible_user_id','UUID do responsável designado','text'],['due_date','Prazo','date'],['internal_notes','Observações internas (não visíveis ao solicitante)','textarea']
+  { section: 'demandas', table: 'member_demands', title: 'Demandas dos associados', columns: ['reference_code','source','requester_name','requester_email','requester_area','requester_city','subject','category','priority','status','due_date','responsible_user_id','created_at'], fields: [
+    ['subject','Assunto','text',true],['category','Classificação','select',true,['public_contact','membership','financial','legal','institutional','other']],['description','Descrição da solicitação','textarea'],['priority','Prioridade','select',false,['low','normal','high','urgent']],['status','Situação','select',false,['open','in_progress','waiting','resolved','closed']],['responsible_user_id','Responsável pelo atendimento','select',false,[]],['due_date','Prazo','date'],['internal_notes','Observações internas (não visíveis ao solicitante)','textarea']
   ]}
 ];
 
@@ -379,6 +379,18 @@ async function addDataPanel(module) {
         option.textContent = type;
         return option;
       }));
+    }
+  }
+
+  if (module.table === 'member_demands') {
+    const responsible = createForm.elements.namedItem('responsible_user_id');
+    if (responsible) {
+      const { data: profiles, error: profileError } = await neon.from('user_profiles').select('user_id,full_name,role').eq('active',true).order('full_name');
+      if (!profileError && Array.isArray(profiles)) {
+        responsible.replaceChildren();
+        const empty = document.createElement('option'); empty.value=''; empty.textContent='Não designado'; responsible.append(empty);
+        profiles.forEach(profile => { const option=document.createElement('option'); option.value=profile.user_id; option.textContent=profile.full_name+' — '+(ROLE_LABELS[profile.role]||translateEnum(profile.role)); responsible.append(option); });
+      }
     }
   }
 
