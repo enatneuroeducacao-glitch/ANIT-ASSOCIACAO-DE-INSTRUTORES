@@ -195,6 +195,9 @@ BEGIN
   END LOOP;
 END $$;
 
+DROP POLICY IF EXISTS relations_read ON anit.institutional_relations;
+DROP POLICY IF EXISTS relations_manage ON anit.institutional_relations;
+
 -- Documentos oficiais: manter a classificação de sigilo também nos anexos.
 DROP POLICY IF EXISTS official_documents_read ON anit.official_documents;
 DROP POLICY IF EXISTS official_documents_manage ON anit.official_documents;
