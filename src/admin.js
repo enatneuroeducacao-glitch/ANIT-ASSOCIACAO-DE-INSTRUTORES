@@ -1,6 +1,15 @@
 import { createClient } from '@neondatabase/neon-js';
 import { NEON_AUTH_URL, NEON_DATA_API_URL } from './config.js';
 
+// Remove credenciais eventualmente recebidas por URL antes de inicializar a aplicação.
+if (window.location.search) {
+  const safeUrl = new URL(window.location.href);
+  const hadCredentials = safeUrl.searchParams.has('password') || safeUrl.searchParams.has('email');
+  safeUrl.searchParams.delete('password');
+  safeUrl.searchParams.delete('email');
+  if (hadCredentials) window.history.replaceState({}, document.title, safeUrl.pathname + safeUrl.search + safeUrl.hash);
+}
+
 const AUTH_URL = NEON_AUTH_URL;
 const DATA_API_URL = NEON_DATA_API_URL;
 const authGate = document.getElementById('authGate');
