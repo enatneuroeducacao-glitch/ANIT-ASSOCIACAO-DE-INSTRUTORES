@@ -216,6 +216,7 @@ async function addDataPanel(module) {
   panel.innerHTML = '<div class="panel-head"><h2></h2><div class="anit-toolbar"><input class="anit-search" type="search" placeholder="Buscar registros"><button class="btn btn-light anit-refresh" type="button">Atualizar</button></div></div><div class="anit-form-wrap"></div><div class="anit-table-wrap"></div><p class="anit-feedback" role="status"></p>';
   panel.querySelector('h2').textContent = module.title;
   section.appendChild(panel);
+  if(module.table==='communications'){const note=document.createElement('div');note.className='notice';note.textContent='Rascunhos e agendamentos ficam restritos à Central. Somente Presidência ou Administrador pode aprovar publicações. Conteúdos agendados e aprovados aparecem no portal automaticamente na data definida. Imagens e documentos devem usar endereços HTTPS públicos; não inclua links privados.';panel.appendChild(note);}
   if (module.table === 'legal_cases') {
     const legalArea=document.createElement('div'); legalArea.className='anit-legal-details panel'; legalArea.hidden=true; panel.appendChild(legalArea);
   }
@@ -1218,13 +1219,36 @@ async function loadTable(module) {
         publish.disabled=row.status==='published'||future||row.status==='cancelled';
         publish.addEventListener('click',async()=>{if(!window.confirm('Confirmar a aprovação e publicação deste conteúdo na página pública da ANIT?'))return;publish.disabled=true;const feedback=panel.querySelector('.anit-feedback');const {error}=await neon.rpc('publish_communication',{p_communication_id:row.id});if(error){feedback.textContent='Não foi possível publicar: '+error.message;feedback.dataset.kind='error';publish.disabled=false;return;}feedback.textContent='Publicação aprovada e disponibilizada no portal público.';feedback.dataset.kind='success';await loadTable(module);});actions.append(publish);
       }
+      if (module.table === 'communications' && ['president','administrator'].includes(currentProfile.role)) {
+        const publish=document.createElement('button');publish.type='button';publish.className='btn btn-primary btn-small';
+        const future=!!row.scheduled_at && new Date(row.scheduled_at)>new Date();
+        const publicDestination=['public_site','public_site_and_social'].includes(row.channel);
+        if(row.status==='published'){publish.textContent='Publicado no portal';publish.disabled=true;}
+        else if(row.channel==='internal'){publish.textContent='Uso interno';publish.disabled=true;}
+        else if(row.status==='scheduled'&&future&&row.approved_at){publish.textContent='Agendado e aprovado';publish.disabled=true;}
+        else if(row.status==='scheduled'&&future){publish.textContent='Aprovar agendamento';}
+        else if(row.status==='cancelled'){publish.textContent='Cancelado';publish.disabled=true;}
+        else {publish.textContent='Publicar no portal';}
+        if(!publicDestination)publish.disabled=true;
+        publish.addEventListener('click',async()=>{
+          const scheduling=row.status==='scheduled'&&future;
+          const question=scheduling?'Aprovar este agendamento? O conteúdo ficará público automaticamente na data e horário definidos.':'Confirmar a aprovação e publicação deste conteúdo na página pública da ANIT?';
+          if(!window.confirm(question))return;
+          publish.disabled=true;const feedback=panel.querySelector('.anit-feedback');
+          const rpc=scheduling?'approve_communication_schedule':'publish_communication';
+          const {error}=await neon.rpc(rpc,{p_communication_id:row.id});
+          if(error){feedback.textContent='Não foi possível concluir: '+error.message;feedback.dataset.kind='error';publish.disabled=false;return;}
+          feedback.textContent=scheduling?'Agendamento aprovado. A publicação ficará disponível na data definida.':'Publicação aprovada e disponibilizada no portal público.';
+          feedback.dataset.kind='success';await loadTable(module);
+        });actions.append(publish);
+      }
       if (module.table === 'official_documents') {
         const attachments = document.createElement('button');
         attachments.type='button'; attachments.className='btn btn-light btn-small'; attachments.textContent='Anexos';
         attachments.addEventListener('click',()=>showOfficialDocumentAttachments(row));
         actions.append(attachments);
       }
-      if (canManage(module.table,currentProfile.role)) {
+      if (canManage(module.table,currentProfile.role) && !(module.table==='communications' && row.status==='published' && !['president','administrator'].includes(currentProfile.role))) {
         const edit=document.createElement('button');
         edit.type='button'; edit.className='btn btn-light btn-small'; edit.textContent='Editar';
         edit.addEventListener('click',()=>panel._editRecord(row));
