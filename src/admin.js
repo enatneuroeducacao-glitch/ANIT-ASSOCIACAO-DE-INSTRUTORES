@@ -1,5 +1,6 @@
 import { createClient } from '@neondatabase/neon-js';
 import { NEON_AUTH_URL, NEON_DATA_API_URL } from './config.js';
+import { renderSiteEditor } from './site-editor.js';
 
 // Remove credenciais eventualmente recebidas por URL antes de inicializar a aplicação.
 if (window.location.search) {
@@ -1663,65 +1664,7 @@ function makeImageField(key,label,value,onValue){
   field.append(input,help,preview,clear);return field;
 }
 async function loadSettings(){
- if(!['president','vice_president'].includes(currentProfile.role))return;
- const section=document.getElementById('configuracoes');if(!section||document.getElementById('anit-settings'))return;
- section.querySelectorAll('.panel,.module-grid').forEach(node=>node.remove());
- const panel=document.createElement('div');panel.id='anit-settings';panel.className='panel anit-data-panel';
- panel.innerHTML='<div class="panel-head"><div><h2>Gerenciador do site público</h2><p class="muted">Controle páginas, identidade visual, publicações e mídias em um único lugar.</p></div><a class="btn btn-light" href="./index.html" target="_blank" rel="noopener">Visualizar site ↗</a></div><div class="anit-site-settings-status" role="status">Carregando configurações...</div><nav class="anit-cms-tabs" aria-label="Seções do site"></nav><form id="anit-public-site-form"></form><div class="anit-settings-actions"><button class="btn btn-primary" type="submit" form="anit-public-site-form">Salvar e publicar alterações</button><button class="btn btn-light" type="button" id="anit-site-reset">Restaurar textos padrão</button></div><p class="anit-feedback" role="status"></p><details class="anit-advanced-settings"><summary>Configurações técnicas</summary><p class="muted">Área avançada para manutenção. Evite alterar chaves sem orientação técnica.</p><form id="anit-advanced-form" class="field-grid anit-create-form"><div class="field"><label>Chave técnica</label><input name="setting_key" required placeholder="ex.: public_site_extra"></div><div class="field full"><label>Valor em JSON</label><textarea name="setting_value" rows="4" required></textarea></div><button class="btn btn-light" type="submit">Salvar configuração técnica</button></form><div class="anit-settings-table"></div></details>';
- section.append(panel);
- const form=panel.querySelector('#anit-public-site-form'),status=panel.querySelector('.anit-site-settings-status'),feedback=panel.querySelector('.anit-feedback'),tabs=panel.querySelector('.anit-cms-tabs');
- let saved={...PUBLIC_SITE_DEFAULTS};
- const {data,error}=await neon.from('system_settings').select('setting_value,updated_at').eq('setting_key','public_site').maybeSingle();
- if(error){status.textContent='Não foi possível carregar as configurações: '+error.message;status.dataset.kind='error';return;}
- if(data?.setting_value&&typeof data.setting_value==='object')saved={...saved,...data.setting_value};
- const collectionsState={};PUBLIC_COLLECTIONS.forEach(c=>collectionsState[c.key]=Array.isArray(saved[c.key])?saved[c.key]:[]);
- const panes={};
- PUBLIC_SITE_GROUPS.forEach((group,index)=>{
-   const tab=document.createElement('button');tab.type='button';tab.className='anit-cms-tab';tab.textContent=group.title;tab.setAttribute('aria-selected',index===0?'true':'false');tab.addEventListener('click',()=>activateTab(group.id));tabs.append(tab);
-   const pane=document.createElement('section');pane.className='anit-cms-pane';pane.dataset.tab=group.id;pane.hidden=index!==0;panes[group.id]=pane;
-   const heading=document.createElement('div');heading.className='anit-site-settings-heading';const title=document.createElement('h3');title.textContent=group.title;const desc=document.createElement('p');desc.textContent=group.description;heading.append(title,desc);pane.append(heading);
-   const grid=document.createElement('div');grid.className='anit-site-settings-grid';
-   group.fields.forEach(([key,label,type])=>{
-     if(type==='image'){const legacy=key==='logo_data'?saved.logo_url:key==='favicon_data'?saved.favicon_url:'';const field=makeImageField(key,label,saved[key]||legacy,value=>{saved[key]=value;if(key==='logo_data')saved.logo_url='';if(key==='favicon_data')saved.favicon_url='';});grid.append(field);return;}
-     const field=document.createElement('div');field.className='field'+(type==='textarea'?' full':'');const caption=document.createElement('label');caption.htmlFor='site-'+key;caption.textContent=label;
-     const input=type==='textarea'?document.createElement('textarea'):document.createElement('input');input.id='site-'+key;input.name=key;input.type=type==='textarea'?'text':type;if(type==='textarea')input.rows=3;input.value=saved[key]??'';field.append(caption,input);grid.append(field);
-   });
-   pane.append(grid);
-   if(group.id==='noticias'){
-     const notice=document.createElement('div');notice.className='anit-cms-notice';notice.innerHTML='<p><strong>Central de notícias e comunicados</strong></p><p>Use o módulo Comunicação para cadastrar e administrar notícias institucionais.</p><a class="btn btn-light" href="#comunicacao">Abrir Comunicação na Central</a> <a class="btn btn-light" href="./index.html#noticias" target="_blank" rel="noopener">Ver seção pública ↗</a>';pane.append(notice);
-   }
-   const collection=PUBLIC_COLLECTIONS.find(c=>c.tab===group.id);
-   if(collection)renderPublicCollection(collection,pane,collectionsState,feedback);
-   form.append(pane);
- });
- function activateTab(id){Object.entries(panes).forEach(([key,pane])=>pane.hidden=key!==id);tabs.querySelectorAll('button').forEach(btn=>btn.setAttribute('aria-selected',btn.textContent===PUBLIC_SITE_GROUPS.find(g=>g.id===id)?.title?'true':'false'));}
- status.textContent=data?.updated_at?'Última atualização: '+new Date(data.updated_at).toLocaleString('pt-BR'):'Nenhuma personalização salva. O portal usa o conteúdo inicial.';
- form.addEventListener('submit',async event=>{
-   event.preventDefault();feedback.textContent='';
-   const values={...PUBLIC_SITE_DEFAULTS,...saved};
-   PUBLIC_SITE_GROUPS.forEach(group=>group.fields.forEach(([key,,type])=>{if(type!=='image')values[key]=String(form.elements[key]?.value??'').trim();}));
-   PUBLIC_COLLECTIONS.forEach(c=>values[c.key]=collectionsState[c.key]);
-   if(values.contact_whatsapp&&!/^https:\/\//i.test(values.contact_whatsapp)){feedback.textContent='O link do WhatsApp deve começar com https://.';feedback.dataset.kind='error';return;}
-   const imageBytes=[values.logo_data,values.favicon_data,...values.articles.map(x=>x.image_data),...values.gallery.map(x=>x.image_data)].filter(Boolean).reduce((sum,x)=>sum+(x.length*0.75),0);
-   if(imageBytes>5*1024*1024){feedback.textContent='O conjunto de imagens ultrapassa 5 MB. Reduza ou remova algumas imagens antes de publicar.';feedback.dataset.kind='error';return;}
-   const save=panel.querySelector('button[form="anit-public-site-form"]');save.disabled=true;save.textContent='Salvando e publicando...';
-   const {error:saveError}=await neon.from('system_settings').upsert({setting_key:'public_site',setting_value:values,updated_by:currentUser.id},{onConflict:'setting_key'});
-   save.disabled=false;save.textContent='Salvar e publicar alterações';
-   if(saveError){feedback.textContent='Não foi possível publicar: '+saveError.message;feedback.dataset.kind='error';return;}
-   saved=values;feedback.textContent='Conteúdo salvo e publicado no portal.';feedback.dataset.kind='success';status.textContent='Última atualização: '+new Date().toLocaleString('pt-BR');await renderAdvancedSettings(panel);
- });
- panel.querySelector('#anit-site-reset').addEventListener('click',()=>{
-   if(!confirm('Restaurar os textos padrão? As imagens e listas de conteúdo serão preservadas.'))return;
-   PUBLIC_SITE_GROUPS.forEach(group=>group.fields.forEach(([key,,type])=>{if(type!=='image'&&form.elements[key])form.elements[key].value=PUBLIC_SITE_DEFAULTS[key]??'';}));
-   feedback.textContent='Textos padrão carregados no formulário. Clique em Salvar e publicar para aplicar.';feedback.dataset.kind='success';
- });
- panel.querySelector('#anit-advanced-form').addEventListener('submit',async event=>{
-   event.preventDefault();const raw=Object.fromEntries(new FormData(event.currentTarget).entries());let value;try{value=JSON.parse(raw.setting_value);}catch{feedback.textContent='O valor precisa ser um JSON válido.';feedback.dataset.kind='error';return;}
-   const {error:saveError}=await neon.from('system_settings').upsert({setting_key:raw.setting_key.trim(),setting_value:value,updated_by:currentUser.id},{onConflict:'setting_key'});
-   if(saveError){feedback.textContent='Não foi possível salvar: '+saveError.message;feedback.dataset.kind='error';return;}
-   feedback.textContent='Configuração técnica salva.';feedback.dataset.kind='success';event.currentTarget.reset();await renderAdvancedSettings(panel);
- });
- await renderAdvancedSettings(panel);
+  await renderSiteEditor({ neon, currentUser, currentProfile });
 }
 function renderPublicCollection(collection,root,state,feedback){
  const card=document.createElement('section');card.className='anit-content-manager';
