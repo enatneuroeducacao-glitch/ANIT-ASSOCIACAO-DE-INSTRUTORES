@@ -224,7 +224,6 @@ DO $$
 DECLARE r record;
 BEGIN
   FOR r IN SELECT * FROM (VALUES
-    ('official_document_attachments','documents'),
     ('legal_case_attachments','legal'),('legal_case_updates','legal'),
     ('institutional_relation_attachments','institutional'),('institutional_relation_updates','institutional')
   ) AS x(table_name, permission_prefix)
