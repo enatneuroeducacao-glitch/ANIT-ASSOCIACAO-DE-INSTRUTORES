@@ -28,9 +28,11 @@ const ENUM_LABELS = {
   archived: 'Arquivado', public: 'Público', restricted: 'Restrito',
   confidential: 'Confidencial', monitoring: 'Em acompanhamento',
   closed: 'Concluído', paused: 'Pausado', scheduled: 'Agendado',
+  decision_issued: 'Decisão proferida', appeal: 'Em recurso',
   held: 'Realizado', draft: 'Rascunho', published: 'Publicado',
   low: 'Baixa', normal: 'Normal', high: 'Alta', urgent: 'Urgente',
   waiting: 'Aguardando', resolved: 'Resolvido',
+  in_analysis: 'Em análise', awaiting_documents: 'Aguardando documentos', awaiting_response: 'Aguardando resposta',
   repealed: 'Revogada integralmente',
   vigente: 'Vigente', 'em revisão': 'Em revisão', substituído: 'Substituído',
   vencido: 'Vencido', arquivado: 'Arquivado',
@@ -290,7 +292,7 @@ async function addDataPanel(module) {
     attachmentInput.name = '_attachments';
     attachmentInput.multiple = true;
     attachmentInput.accept = '.pdf,.docx,.xlsx,.jpg,.jpeg,.png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png';
-    attachmentLabel.htmlFor = 'official-documents-attachments';
+    attachmentLabel.htmlFor = module.table + '-attachments';
     attachmentInput.id = module.table + '-attachments';
     attachmentField.append(attachmentLabel, attachmentInput);
     createForm.appendChild(attachmentField);
