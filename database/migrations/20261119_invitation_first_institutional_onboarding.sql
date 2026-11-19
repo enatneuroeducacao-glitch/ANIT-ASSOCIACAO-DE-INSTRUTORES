@@ -17,7 +17,7 @@ v_id uuid; v_token uuid; v_expiry timestamptz;
 BEGIN
 SELECT role INTO v_actor_role FROM anit.user_profiles WHERE user_id=auth.uid() AND active=true;
 IF v_actor_role IS NULL OR v_actor_role NOT IN ('president','vice_president') THEN RAISE EXCEPTION 'Somente Presidente e Vice-presidente podem emitir convites institucionais.'; END IF;
-IF v_email !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$' THEN RAISE EXCEPTION 'Informe um endereço de e-mail válido.'; END IF;
+IF v_email !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+[.][A-Z]{2,}$' THEN RAISE EXCEPTION 'Informe um endereço de e-mail válido.'; END IF;
 IF length(v_name)<3 THEN RAISE EXCEPTION 'Informe o nome completo do integrante.'; END IF;
 IF p_role IS NULL OR p_role NOT IN ('treasurer','secretary','director','administrator') THEN RAISE EXCEPTION 'Função institucional inválida.'; END IF;
 IF EXISTS(SELECT 1 FROM neon_auth."user" u WHERE lower(u.email)=v_email) THEN RAISE EXCEPTION 'Este e-mail já possui uma conta de acesso. Solicite a vinculação do perfil existente.'; END IF;
