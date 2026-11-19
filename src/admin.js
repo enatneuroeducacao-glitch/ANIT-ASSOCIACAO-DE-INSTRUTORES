@@ -172,6 +172,7 @@ function clearMessage() {
 
 function roleAllowed(section, role) {
   if (['president','vice_president'].includes(role)) return true;
+  if (role === 'administrator' && section === 'dashboard') return currentPermissions.has('dashboard.read');
   const key = SECTION_PERMISSION[section];
   return Boolean(key && (currentPermissions.has(key + '.read') || currentPermissions.has(key + '.manage')));
 }
@@ -1292,6 +1293,22 @@ async function loadProfile(user) {
 
 
 async function loadDashboardStats() {
+  if (currentProfile?.role === 'administrator') {
+    const section = document.getElementById('dashboard');
+    if (!section) return;
+    section.querySelector('.page-head .eyebrow').textContent = 'Administração do sistema';
+    section.querySelector('.page-head h1').textContent = 'Painel técnico da Central ANIT';
+    section.querySelector('.page-head p').textContent = 'Visão operacional sem exposição de dados institucionais ou pessoais.';
+    const notice = section.querySelector('.notice');
+    if (notice) notice.innerHTML = '<strong>Ambiente técnico restrito.</strong> Este painel apresenta apenas informações de funcionamento. Dados de associados, financeiro, documentos e demais registros institucionais permanecem bloqueados.';
+    const stats = section.querySelector('.stats');
+    if (stats) stats.innerHTML = '<article class="stat"><div class="stat-top">Autenticação <span class="stat-icon">✓</span></div><div class="stat-value">Ativa</div><small>Sessão individual validada</small></article><article class="stat"><div class="stat-top">Permissão técnica <span class="stat-icon">⚙</span></div><div class="stat-value">Limitada</div><small>Somente diagnóstico e leitura técnica</small></article><article class="stat"><div class="stat-top">Dados institucionais <span class="stat-icon">🔒</span></div><div class="stat-value">Protegidos</div><small>Sem acesso por este perfil</small></article><article class="stat"><div class="stat-top">Auditoria <span class="stat-icon">▤</span></div><div class="stat-value">Disponível</div><small>Consulta resumida de eventos</small></article>';
+    const main = section.querySelector('.grid-main');
+    if (main) main.innerHTML = '<div class="panel"><div class="panel-head"><h2>Estado do ambiente</h2><span class="muted">Verificações locais</span></div><div class="empty"><strong>Autenticação e autorização ativas</strong>O perfil técnico está restrito aos controles de sistema e não recebe acesso a módulos institucionais.</div></div><div class="panel"><div class="panel-head"><h2>Acesso rápido</h2></div><div class="quick-grid"><button class="quick" data-go="configuracoes"><span>⚙</span>Diagnóstico técnico</button></div></div>';
+    const areas = section.querySelectorAll('.panel');
+    areas.forEach(panel => { if (panel.querySelector('.module-grid')) panel.remove(); });
+    return;
+  }
   const selectors = [...document.querySelectorAll('#dashboard .stat-value')];
   const cards = [
     { table: 'associates', filter: null, label: 'Associados cadastrados' },
@@ -1300,53 +1317,41 @@ async function loadDashboardStats() {
     { table: 'official_documents', filter: null, label: 'Documentos emitidos' }
   ];
   for (let i = 0; i < cards.length; i++) {
-    const card = cards[i];
-    const node = selectors[i];
+    const card = cards[i]; const node = selectors[i];
     if (!node || !roleAllowed(card.table === 'associates' ? 'associados' : card.table === 'financial_entries' ? 'financeiro' : card.table === 'member_demands' ? 'demandas' : 'documentos', currentProfile.role)) continue;
     let query = neon.from(card.table).select('id').limit(100);
     if (card.filter) query = query.eq(card.filter[0], card.filter[1]);
     const { data, error } = await query;
-    if (!error) {
-      node.textContent = data.length === 100 ? '100+' : String(data.length);
-      const detail = node.parentElement.querySelector('small');
-      if (detail) detail.textContent = 'Dados atuais do banco ANIT';
-    } else {
-      node.textContent = '—';
-    }
+    if (!error) { node.textContent = data.length === 100 ? '100+' : String(data.length); const detail = node.parentElement.querySelector('small'); if (detail) detail.textContent = 'Dados atuais do banco ANIT'; }
+    else node.textContent = '—';
   }
 }
-
 async function loadAudit() {
-  const section = document.getElementById('usuarios');
-  if (!section || !['president','vice_president'].includes(currentProfile.role)) return;
+  const isTop = ['president','vice_president'].includes(currentProfile.role);
+  const isTech = currentProfile.role === 'administrator' && currentPermissions.has('audit.read');
+  if (!isTop && !isTech) return;
+  const section = document.getElementById(isTech ? 'dashboard' : 'usuarios');
+  if (!section) return;
   const panel = document.createElement('div');
   panel.className = 'panel anit-data-panel';
-  panel.innerHTML = '<div class="panel-head"><h2>Trilha de auditoria</h2></div><div class="anit-table-wrap"></div>';
+  panel.innerHTML = '<div class="panel-head"><h2>Trilha de auditoria</h2><span class="muted">'+(isTech?'Resumo técnico, sem identificação pessoal':'Registro institucional')+'</span></div><div class="anit-table-wrap"></div>';
   section.appendChild(panel);
   const wrap = panel.querySelector('.anit-table-wrap');
-  const { data, error } = await neon.from('audit_log')
-    .select('action,table_name,record_id,changed_fields,occurred_at,actor_user_id')
-    .order('occurred_at',{ascending:false}).limit(50);
+  const fields = isTech ? 'action,table_name,occurred_at' : 'action,table_name,record_id,changed_fields,occurred_at,actor_user_id';
+  const { data, error } = await neon.from('audit_log').select(fields).order('occurred_at',{ascending:false}).limit(50);
   if (error) { wrap.textContent = 'Auditoria indisponível: ' + error.message; return; }
   if (!data?.length) { wrap.textContent = 'Nenhuma operação registrada até o momento.'; return; }
-  const table = document.createElement('table');
-  const head = document.createElement('tr');
-  ['Data','Ação','Tabela','Registro','Campos alterados','Usuário'].forEach(label => {
-    const th = document.createElement('th'); th.textContent = label; head.appendChild(th);
-  });
-  const thead = document.createElement('thead'); thead.appendChild(head); table.appendChild(thead);
-  const tbody = document.createElement('tbody');
+  const table = document.createElement('table'); const head = document.createElement('tr');
+  (isTech ? ['Data','Ação','Área'] : ['Data','Ação','Tabela','Registro','Campos alterados','Usuário']).forEach(label => { const th=document.createElement('th'); th.textContent=label; head.appendChild(th); });
+  const thead=document.createElement('thead'); thead.appendChild(head); table.appendChild(thead);
+  const tbody=document.createElement('tbody');
   data.forEach(row => {
-    const tr = document.createElement('tr');
-    [new Date(row.occurred_at).toLocaleString('pt-BR'),row.action,row.table_name,row.record_id,(row.changed_fields||[]).join(', '),row.actor_user_id].forEach(value => {
-      const td=document.createElement('td'); td.textContent=value||'—'; tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
+    const tr=document.createElement('tr');
+    const values=isTech ? [new Date(row.occurred_at).toLocaleString('pt-BR'),row.action,row.table_name] : [new Date(row.occurred_at).toLocaleString('pt-BR'),row.action,row.table_name,row.record_id,(row.changed_fields||[]).join(', '),row.actor_user_id];
+    values.forEach(value=>{const td=document.createElement('td');td.textContent=value||'—';tr.appendChild(td);}); tbody.appendChild(tr);
   });
-  table.appendChild(tbody);
-  const frame=document.createElement('div'); frame.className='table-wrap'; frame.appendChild(table); wrap.replaceChildren(frame);
+  table.appendChild(tbody); const frame=document.createElement('div'); frame.className='table-wrap'; frame.appendChild(table); wrap.replaceChildren(frame);
 }
-
 
 async function loadUsersAndPermissions() {
   const section=document.getElementById('usuarios');
