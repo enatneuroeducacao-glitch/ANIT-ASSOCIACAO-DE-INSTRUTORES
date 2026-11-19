@@ -150,6 +150,8 @@ CREATE POLICY user_profiles_manage ON anit.user_profiles
 -- Permissões padrão dos setores. As concessões individuais podem sobrescrever cada item.
 INSERT INTO anit.role_permissions(role, permission_key, allowed) VALUES
  ('vice_president','users.manage',true),
+ ('president','users.read',true),('vice_president','users.read',true),
+ ('treasurer','users.read',true),('secretary','users.read',true),('director','users.read',true),
  ('treasurer','finance.read',true),('treasurer','finance.manage',true),
  ('treasurer','associates.read',true),('treasurer','reports.read',true),
  ('secretary','associates.read',true),('secretary','associates.manage',true),
@@ -249,3 +251,44 @@ CREATE POLICY role_permissions_read ON anit.role_permissions FOR SELECT TO authe
 -- Bloqueia gravações diretas na tabela de exceções individuais.
 REVOKE INSERT, UPDATE, DELETE ON anit.user_permissions FROM authenticated;
 GRANT SELECT ON anit.user_permissions TO authenticated;
+
+-- Responsáveis setoriais podem localizar perfis e consultar apenas a matriz
+-- necessária para as áreas sob sua competência.
+DROP POLICY IF EXISTS user_profiles_sector_read ON anit.user_profiles;
+CREATE POLICY user_profiles_sector_read ON anit.user_profiles FOR SELECT TO authenticated
+ USING (
+   user_id = auth.uid() OR anit.has_permission('users.manage')
+   OR anit.has_permission('finance.manage')
+   OR anit.has_permission('associates.manage')
+   OR anit.has_permission('demands.manage')
+   OR anit.has_permission('documents.manage')
+   OR anit.has_permission('protocols.manage')
+   OR anit.has_permission('meetings.manage')
+   OR anit.has_permission('communications.manage')
+ );
+
+DROP POLICY IF EXISTS role_permissions_sector_read ON anit.role_permissions;
+CREATE POLICY role_permissions_sector_read ON anit.role_permissions FOR SELECT TO authenticated
+ USING (
+   anit.has_permission('users.manage')
+   OR (permission_key LIKE 'finance.%' AND anit.has_permission('finance.manage'))
+   OR (permission_key LIKE 'associates.%' AND anit.has_permission('associates.manage'))
+   OR (permission_key LIKE 'demands.%' AND anit.has_permission('demands.manage'))
+   OR (permission_key LIKE 'documents.%' AND anit.has_permission('documents.manage'))
+   OR (permission_key LIKE 'protocols.%' AND anit.has_permission('protocols.manage'))
+   OR (permission_key LIKE 'meetings.%' AND anit.has_permission('meetings.manage'))
+   OR (permission_key LIKE 'communications.%' AND anit.has_permission('communications.manage'))
+ );
+
+DROP POLICY IF EXISTS user_permissions_read ON anit.user_permissions;
+CREATE POLICY user_permissions_read ON anit.user_permissions FOR SELECT TO authenticated
+ USING (
+   user_id = auth.uid() OR anit.has_permission('users.manage')
+   OR (permission_key LIKE 'finance.%' AND anit.has_permission('finance.manage'))
+   OR (permission_key LIKE 'associates.%' AND anit.has_permission('associates.manage'))
+   OR (permission_key LIKE 'demands.%' AND anit.has_permission('demands.manage'))
+   OR (permission_key LIKE 'documents.%' AND anit.has_permission('documents.manage'))
+   OR (permission_key LIKE 'protocols.%' AND anit.has_permission('protocols.manage'))
+   OR (permission_key LIKE 'meetings.%' AND anit.has_permission('meetings.manage'))
+   OR (permission_key LIKE 'communications.%' AND anit.has_permission('communications.manage'))
+ );
