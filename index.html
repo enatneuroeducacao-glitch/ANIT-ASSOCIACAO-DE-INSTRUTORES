@@ -183,5 +183,78 @@ function makeNewsCard(item){
 async function loadPublicNews(){if(!newsRoot)return;try{if(!NEON_DATA_API_URL)throw new Error('Serviço de publicações indisponível');const response=await fetch(NEON_DATA_API_URL.replace(/\/$/,'')+'/rpc/list_public_communications',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:'{}'});if(!response.ok)throw new Error('HTTP '+response.status);const items=await response.json();newsRoot.replaceChildren();if(!Array.isArray(items)||!items.length){const empty=document.createElement('p');empty.className='news-empty';empty.textContent='Ainda não há comunicados oficiais publicados. Acompanhe este espaço para novidades da ANIT.';newsRoot.append(empty);return}items.forEach(item=>newsRoot.append(makeNewsCard(item)))}catch(error){newsRoot.replaceChildren();const failed=document.createElement('p');failed.className='news-error';failed.textContent='Não foi possível carregar as publicações oficiais neste momento. Tente novamente mais tarde.';newsRoot.append(failed);}}
 loadPublicNews();
 </script>
+<script type="module">
+import { NEON_DATA_API_URL } from './src/config.js';
+
+function setText(selector,value){
+  if(value===undefined||value===null||String(value)==='')return;
+  const node=document.querySelector(selector);if(node)node.textContent=String(value);
+}
+function safeWebUrl(value){
+  try{const url=new URL(value);return ['https:','http:'].includes(url.protocol)?url.href:null}catch{return null}
+}
+async function loadPublicSiteSettings(){
+  if(!NEON_DATA_API_URL)return;
+  try{
+    const response=await fetch(NEON_DATA_API_URL.replace(/\/$/,'')+'/rpc/get_public_site_settings',{
+      method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:'{}'
+    });
+    if(!response.ok)throw new Error('HTTP '+response.status);
+    const settings=await response.json();
+    if(!settings||typeof settings!=='object'||Array.isArray(settings))return;
+
+    if(settings.identity_name){
+      document.querySelectorAll('.brand-mark').forEach(node=>node.textContent=settings.identity_name);
+      document.querySelectorAll('.brand span:nth-child(2)').forEach(node=>{if(node.firstChild&&node.firstChild.nodeType===Node.TEXT_NODE)node.firstChild.nodeValue=settings.identity_name;});
+    }
+    if(settings.identity_descriptor)document.querySelectorAll('.brand small').forEach(node=>node.textContent=settings.identity_descriptor);
+    const topbar=document.querySelectorAll('.topbar .container span');
+    if(settings.topbar_left&&topbar[0])topbar[0].textContent=settings.topbar_left;
+    if(settings.topbar_right&&topbar[1])topbar[1].textContent=settings.topbar_right;
+
+    setText('.hero .eyebrow',settings.hero_eyebrow);
+    if(settings.hero_title_before||settings.hero_title_highlight||settings.hero_title_after){
+      const title=document.querySelector('.hero h1');
+      if(title){title.replaceChildren(document.createTextNode(settings.hero_title_before||''));const highlight=document.createElement('span');highlight.textContent=settings.hero_title_highlight||'';title.append(highlight,document.createTextNode(settings.hero_title_after||''));}
+    }
+    setText('.hero-grid>div:first-child>p:not(.hero-note)',settings.hero_description);
+    const heroButtons=document.querySelectorAll('.hero-actions a');
+    if(settings.hero_primary_cta&&heroButtons[0])heroButtons[0].childNodes[0].nodeValue=settings.hero_primary_cta+' ';
+    if(settings.hero_secondary_cta&&heroButtons[1])heroButtons[1].textContent=settings.hero_secondary_cta;
+    setText('.hero .hero-note',settings.hero_note);
+
+    setText('.about-panel .big',settings.about_panel_title);
+    setText('.about-panel p',settings.about_panel_text);
+    setText('.about-grid>div:nth-child(2) .kicker',settings.about_kicker);
+    setText('.about-grid>div:nth-child(2) h2',settings.about_title);
+    const aboutParagraphs=document.querySelectorAll('.about-grid>div:nth-child(2)>p');
+    if(settings.about_text_1&&aboutParagraphs[0])aboutParagraphs[0].textContent=settings.about_text_1;
+    if(settings.about_text_2&&aboutParagraphs[1])aboutParagraphs[1].textContent=settings.about_text_2;
+
+    setText('#atuacao .section-head .kicker',settings.activity_kicker);
+    setText('#atuacao .section-head h2',settings.activity_title);
+    setText('#atuacao .section-head p',settings.activity_description);
+
+    setText('.contact-grid h2',settings.contact_title);
+    setText('.contact-grid>div>p',settings.contact_description);
+    const contactBox=document.querySelector('.contact-grid .contact-box');
+    if(contactBox){
+      let channels=document.getElementById('anit-public-contact-channels');
+      if(!channels){channels=document.createElement('div');channels.id='anit-public-contact-channels';channels.className='anit-public-contact-channels';contactBox.insertBefore(channels,contactBox.querySelector('form'));}
+      channels.replaceChildren();
+      const entries=[];
+      if(settings.contact_email&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.contact_email))entries.push({label:'E-mail institucional',href:'mailto:'+settings.contact_email});
+      if(settings.contact_phone)entries.push({label:'Telefone: '+settings.contact_phone,href:'tel:'+settings.contact_phone.replace(/[^+\d]/g,'')});
+      const whatsapp=safeWebUrl(settings.contact_whatsapp);if(whatsapp)entries.push({label:'Fale pelo WhatsApp',href:whatsapp});
+      entries.forEach(item=>{const link=document.createElement('a');link.href=item.href;link.textContent=item.label;if(item.href.startsWith('http')){link.target='_blank';link.rel='noopener noreferrer';}channels.append(link);});
+    }
+    setText('.footer-grid>div:first-child>p',settings.footer_description);
+    setText('.copyright span:last-child',settings.footer_notice);
+    if(settings.seo_title){document.title=settings.seo_title;const og=document.querySelector('meta[property="og:title"]');if(og)og.content=settings.seo_title;}
+    if(settings.seo_description){const meta=document.querySelector('meta[name="description"]');if(meta)meta.content=settings.seo_description;}
+  }catch(error){console.warn('Não foi possível carregar as configurações públicas da ANIT:',error);}
+}
+loadPublicSiteSettings();
+</script>
 </body>
 </html>
