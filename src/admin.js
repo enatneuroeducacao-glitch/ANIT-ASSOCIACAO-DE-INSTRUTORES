@@ -156,7 +156,7 @@ let neon;
 let currentUser;
 let currentProfile;
 let currentPermissions = new Set();
-const SECTION_PERMISSION = {dashboard:'dashboard',associados:'associates',diretoria:'board',financeiro:'finance',secretaria:'protocols',documentos:'documents',juridico:'legal',representacao:'institutional',reunioes:'meetings',comunicacao:'communications',demandas:'demands',relatorios:'reports',usuarios:'users'};
+const SECTION_PERMISSION = {dashboard:'dashboard',associados:'associates',diretoria:'board',financeiro:'finance',secretaria:'protocols',documentos:'documents',juridico:'legal',representacao:'institutional',reunioes:'meetings',comunicacao:'communications',demandas:'demands',relatorios:'reports',usuarios:'users',configuracoes:'system'};
 const TABLE_PERMISSION = {associates:'associates',board_members:'board',financial_entries:'finance',protocols:'protocols',official_documents:'documents',legal_cases:'legal',legal_references:'legal',institutional_relations:'institutional',meetings:'meetings',meeting_attendees:'meetings',meeting_action_items:'meetings',meeting_attachments:'meetings',meeting_updates:'meetings',communications:'communications',member_demands:'demands'};
 
 function showMessage(text, kind = 'error') {
@@ -1451,6 +1451,50 @@ async function renderReports(panel){
   else{const counts={};assoc.data.forEach(x=>counts[x.status]=(counts[x.status]||0)+1);members.textContent=Object.entries(counts).map(([k,v])=>k+': '+v).join(' • ')||'Sem registros';}
 }
 
+async function loadTechnicalPanel() {
+  if (currentProfile?.role !== 'administrator' || !currentPermissions.has('system.read')) return;
+  const section = document.getElementById('configuracoes');
+  if (!section || document.getElementById('anit-technical-panel')) return;
+  section.querySelectorAll('.panel').forEach(node => node.remove());
+  section.querySelector('.eyebrow').textContent = 'Administração do sistema';
+  section.querySelector('h1').textContent = 'Diagnóstico técnico';
+  section.querySelector('.page-head p').textContent = 'Estado dos serviços e da autenticação, sem acesso aos dados institucionais.';
+  const panel = document.createElement('div');
+  panel.id = 'anit-technical-panel';
+  panel.className = 'panel anit-data-panel';
+  panel.innerHTML = '<div class="panel-head"><h2>Verificação do ambiente</h2><button type="button" class="btn btn-light" id="anit-tech-refresh">Executar novamente</button></div><p class="muted">Este painel não concede acesso a associados, documentos, financeiro, jurídico ou demais registros institucionais.</p><div class="anit-tech-results">Executando diagnóstico...</div>';
+  section.appendChild(panel);
+  const run = async () => {
+    const wrap = panel.querySelector('.anit-tech-results');
+    wrap.textContent = 'Verificando autenticação, perfil e permissões...';
+    const checks = [];
+    const session = await neon.auth.getSession();
+    checks.push(['Sessão de autenticação', !session.error && Boolean(session.data?.session), session.error?.message || 'Sessão individual ativa']);
+    const profile = await neon.from('user_profiles').select('role,active').eq('user_id', currentUser.id).maybeSingle();
+    checks.push(['Perfil institucional', !profile.error && profile.data?.role === 'administrator' && profile.data?.active === true, profile.error?.message || (profile.data ? profile.data.role + (profile.data.active ? ' • ativo' : ' • inativo') : 'Perfil não encontrado')]);
+    const permissions = await neon.rpc('current_permissions');
+    const keys = Array.isArray(permissions.data) ? permissions.data : (permissions.data?.current_permissions || []);
+    checks.push(['Permissões efetivas', !permissions.error && keys.includes('system.read') && !keys.includes('*'), permissions.error?.message || (keys.join(', ') || 'Nenhuma permissão')]);
+    const table = document.createElement('table');
+    const head = document.createElement('thead');
+    head.innerHTML = '<tr><th>Verificação</th><th>Resultado</th><th>Detalhe</th></tr>';
+    table.appendChild(head);
+    const body = document.createElement('tbody');
+    checks.forEach(([label, ok, detail]) => {
+      const tr = document.createElement('tr');
+      [label, ok ? 'Aprovado' : 'Falha', detail].forEach(value => {
+        const td = document.createElement('td'); td.textContent = String(value); tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    table.appendChild(body);
+    const frame = document.createElement('div'); frame.className = 'table-wrap'; frame.appendChild(table);
+    wrap.replaceChildren(frame);
+  };
+  panel.querySelector('#anit-tech-refresh').addEventListener('click', run);
+  await run();
+}
+
 async function loadSettings() {
   if(!['president','vice_president'].includes(currentProfile.role)) return;
   const canEditSettings=['president','vice_president'].includes(currentProfile.role);
@@ -1531,6 +1575,7 @@ async function boot() {
   await loadUsersAndPermissions();
   await loadReports();
   if (['president','vice_president'].includes(currentProfile.role)) await loadSettings();
+  if (currentProfile.role === 'administrator') await loadTechnicalPanel();
 }
 
 form?.addEventListener('submit', async event => {
