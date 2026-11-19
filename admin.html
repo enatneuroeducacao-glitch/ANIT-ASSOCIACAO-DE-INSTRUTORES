@@ -25,6 +25,24 @@
 
 /* Agenda institucional ANIT */
 .anit-meeting-calendar,.anit-meeting-workspace{margin:16px 0;padding:20px;border:1px solid var(--line);border-radius:14px;background:#fff}.anit-calendar-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.anit-calendar-head h3{margin:0;text-transform:capitalize;color:var(--navy)}.anit-calendar-stats{color:var(--muted);margin:12px 0}.anit-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin:14px 0 24px}.anit-calendar-weekday{text-align:center;font-weight:700;color:var(--muted);padding:8px}.anit-calendar-day{min-height:100px;border:1px solid var(--line);border-radius:9px;padding:7px;background:#fbfcfe;display:flex;flex-direction:column;gap:5px;min-width:0}.anit-calendar-day>strong{font-size:.85rem;color:var(--navy)}.anit-calendar-event{font-size:.72rem;text-align:left;white-space:normal;border:0;border-radius:6px;padding:5px;background:#e8f0fa;color:#173c5d;cursor:pointer}.anit-calendar-event.is-held{background:#e9f5ed;color:#23613d}.anit-calendar-event.is-cancelled{background:#faeaea;color:#963f3f;text-decoration:line-through}.anit-calendar-blank{min-height:40px}.anit-upcoming-meetings{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.anit-meeting-card{padding:14px;border:1px solid var(--line);border-radius:10px;background:#f8fafc}.anit-meeting-card p{margin:8px 0;color:var(--muted)}.anit-meeting-report{padding:18px;margin:12px 0;border:1px solid var(--line);border-radius:10px;background:#fff}.anit-meeting-report h4{margin:18px 0 6px;color:var(--navy2)}.anit-meeting-report p{line-height:1.55}@media(max-width:700px){.anit-calendar-day{min-height:68px;padding:4px}.anit-calendar-event{font-size:.62rem;padding:3px}.anit-calendar-grid{gap:3px}}
+
+/* Centro de controle de acessos ANIT */
+.anit-control-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.anit-control-stat{padding:16px;border:1px solid var(--line);border-radius:12px;background:#f8fafc;display:flex;flex-direction:column;gap:5px}
+.anit-control-stat span{font-size:.78rem;color:var(--muted);font-weight:700}
+.anit-control-stat strong{font-size:1.35rem;color:var(--navy)}
+.anit-users-table .btn{margin:2px}
+.anit-permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.anit-permission-item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#f8fafc;font-weight:650}
+.anit-permission-item input{width:19px;height:19px;accent-color:var(--green);flex:0 0 auto}
+.anit-security-list{padding-left:20px;color:var(--muted);display:grid;gap:8px}
+.anit-control-profile{margin:14px 0}
+#anit-users-manager>.panel{margin-top:16px}
+#anit-users-manager .panel-head h3{margin:0;color:var(--navy);font-size:1rem}
+#anit-users-manager .anit-search{max-width:260px}
+@media(max-width:900px){.anit-control-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.anit-permission-grid{grid-template-columns:1fr}.anit-control-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#anit-users-manager .panel-head{align-items:flex-start;flex-direction:column}#anit-users-manager .anit-search{max-width:none;width:100%}}
+
 </style>
 </head>
 <body>
