@@ -134,11 +134,9 @@ const MODULES = [
     ['institution','Instituição / entidade','text',true],
     ['institution_type','Tipo de instituição','select',true,['orgao_publico','autarquia','entidade_classe','sindicato','universidade','empresa','organizacao_social','outro']],
     ['relation_type','Natureza da relação','select',true,['representacao','oficio','parceria','reuniao','negociacao','consulta','cooperacao','acompanhamento']],
-    ['contact_name','Pessoa de contato','text'],
-    ['subject','Assunto / pauta principal','text'],
+    ['contact_name','Pessoa de contato','text'],['subject','Assunto / pauta principal','text'],
     ['channel','Canal de contato','select',false,['email','telefone','oficio','reuniao_presencial','reuniao_online','whatsapp','outro']],
-    ['last_contact_at','Último contato','datetime-local'],
-    ['next_action_at','Próxima ação / compromisso','datetime-local'],
+    ['last_contact_at','Último contato','datetime-local'],['next_action_at','Próxima ação / compromisso','datetime-local'],
     ['priority','Prioridade','select',true,['low','normal','high','urgent']],
     ['status','Situação atual','select',true,['active','in_contact','awaiting_response','meeting_scheduled','in_negotiation','paused','completed','closed']],
     ['notes','Histórico / observações','textarea']
@@ -476,7 +474,7 @@ async function addDataPanel(module) {
           feedback.textContent = 'Registro atualizado com sucesso.';
         } else {
           payload.created_by = activeSessionUser.id;
-          if (['official_documents','legal_cases'].includes(module.table)) {
+          if (['official_documents','legal_cases','institutional_relations'].includes(module.table)) {
             const { data: inserted, error } = await neon.from(module.table).insert(payload).select('id').single();
             if (error) throw error;
             savedDocumentId = inserted.id;
