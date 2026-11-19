@@ -1354,6 +1354,7 @@ async function loadUsersAndPermissions() {
   const role=currentProfile.role;
   const top=['administrator','president','vice_president'].includes(role);
   const scopes=top?['associates','board','finance','protocols','documents','legal','institutional','meetings','communications','demands','reports','users']:(role==='treasurer'?['finance']:(role==='secretary'?['associates','demands','documents','protocols','meetings','communications']:[]));
+  const canManageAccess=top||scopes.length>0;
   const panel=document.createElement('div');panel.id='anit-users-manager';panel.className='panel anit-data-panel';
   panel.innerHTML=`
     <div class="panel-head"><div><h2>Centro de controle institucional</h2><p class="muted">Gestão de identidades, funções e autorizações individuais.</p></div><button class="btn btn-light" id="anit-control-refresh" type="button">Atualizar</button></div>
@@ -1368,6 +1369,7 @@ async function loadUsersAndPermissions() {
   own.addEventListener('submit',async e=>{e.preventDefault();const fb=panel.querySelector('#anit-own-feedback');const {error}=await neon.rpc('update_own_profile',{p_full_name:own.elements.full_name.value.trim()});fb.textContent=error?'Falha: '+error.message:'Cadastro atualizado.';fb.dataset.kind=error?'error':'success';if(!error)currentProfile.full_name=own.elements.full_name.value.trim();});
   const userForm=panel.querySelector('#anit-user-form');
   if(userForm)userForm.addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(userForm));const fb=panel.querySelector('#anit-user-feedback');if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw.user_id)){fb.textContent='UUID inválido.';fb.dataset.kind='error';return;}const {error}=await neon.from('user_profiles').upsert({user_id:raw.user_id,full_name:raw.full_name.trim(),role:raw.role,active:raw.active==='true'},{onConflict:'user_id'});fb.textContent=error?'Falha ao salvar: '+error.message:'Perfil salvo. O usuário deverá entrar novamente.';fb.dataset.kind=error?'error':'success';if(!error){userForm.reset();await renderUsers();}});
+  if(!canManageAccess){panel.querySelector('.anit-users-table')?.closest('.panel')?.setAttribute('hidden','');panel.querySelector('#anit-user-permission-editor')?.closest('.panel')?.setAttribute('hidden','');}
   const catalog=[
     ['associates.read','Consultar associados'],['associates.manage','Gerenciar associados'],
     ['board.read','Consultar diretoria e mandatos'],['board.manage','Gerenciar diretoria e mandatos'],
@@ -1396,7 +1398,6 @@ async function loadUsersAndPermissions() {
   async function renderPermissionEditor(user){
     const editor=panel.querySelector('#anit-user-permission-editor');editor.replaceChildren();const title=document.createElement('h4');title.textContent='Acessos de '+user.full_name+' — '+(ROLE_LABELS[user.role]||user.role);editor.append(title);
     if(['president','vice_president','administrator'].includes(user.role)){const note=document.createElement('p');note.className='muted';note.textContent='Este perfil possui controle integral por função institucional. Suas permissões não podem ser reduzidas por liberações setoriais.';editor.append(note);return;}
-    if(['president','vice_president','administrator'].includes(user.role)&&!top){const note=document.createElement('p');note.textContent='Perfis de controle institucional não podem ser alterados por responsáveis setoriais.';editor.append(note);return;}
     const {data:overrides,error}=await neon.from('user_permissions').select('permission_key,allowed').eq('user_id',user.user_id);
     if(error){const p=document.createElement('p');p.textContent='Não foi possível consultar liberações individuais: '+error.message;editor.append(p);return;}
     const {data:defaults}=await neon.from('role_permissions').select('permission_key,allowed').eq('role',user.role);
@@ -1405,9 +1406,9 @@ async function loadUsersAndPermissions() {
     catalog.filter(([key])=>canGrant(key)).forEach(([key,label])=>{const row=document.createElement('label');row.className='anit-permission-item';const span=document.createElement('span');span.textContent=label;const check=document.createElement('input');check.type='checkbox';check.checked=effective.get(key)===true;check.addEventListener('change',async()=>{check.disabled=true;const {error:saveError}=await neon.rpc('set_user_permission',{p_user_id:user.user_id,p_permission_key:key,p_allowed:check.checked});check.disabled=false;if(saveError){check.checked=!check.checked;window.alert('Não foi possível alterar: '+saveError.message);}});row.append(span,check);grid.append(row);});
     editor.append(grid);const note=document.createElement('p');note.className='muted';note.textContent='As alterações individuais são gravadas no banco e aplicadas às políticas de acesso. A revogação bloqueia também a operação pela API.';editor.append(note);
   }
-  panel.querySelector('#anit-user-search').addEventListener('input',renderUsers);
-  panel.querySelector('#anit-control-refresh').addEventListener('click',async()=>{await loadCurrentPermissions();await renderUsers();});
-  await renderUsers();
+  if(canManageAccess){panel.querySelector('#anit-user-search').addEventListener('input',renderUsers);}
+  panel.querySelector('#anit-control-refresh').addEventListener('click',async()=>{await loadCurrentPermissions();if(canManageAccess)await renderUsers();});
+  if(canManageAccess)await renderUsers();
 }
 
 async function loadReports() {
