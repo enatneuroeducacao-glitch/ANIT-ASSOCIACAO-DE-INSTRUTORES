@@ -141,8 +141,8 @@ const MODULES = [
     ['status','Situação atual','select',true,['active','in_contact','awaiting_response','meeting_scheduled','in_negotiation','paused','completed','closed']],
     ['notes','Histórico / observações','textarea']
   ]},
-  { section: 'reunioes', table: 'meetings', title: 'Reuniões e agenda', columns: ['title','meeting_type','starts_at','ends_at','location','status'], fields: [
-    ['title','Título','text',true],['meeting_type','Tipo','text'],['starts_at','Início','datetime-local',true],['ends_at','Término','datetime-local'],['location','Local','text'],['agenda','Pauta','textarea'],['status','Situação','select',false,['scheduled','held','cancelled']]
+  { section: 'reunioes', table: 'meetings', title: 'Agenda e reuniões', columns: ['meeting_number','title','meeting_type','starts_at','location','status'], fields: [
+    ['title','Título da reunião','text',true],['meeting_type','Tipo de reunião','select',true,['assembleia_geral','diretoria','conselho_fiscal','comissao','extraordinaria','institucional','outra']],['starts_at','Início','datetime-local',true],['ends_at','Término','datetime-local'],['meeting_mode','Modalidade','select',true,['presencial','online','hibrida']],['location','Local / endereço','text'],['meeting_link','Link da reunião','url'],['organizer','Responsável pela convocação','text'],['participants_summary','Participantes / convidados','textarea'],['agenda','Pauta e ordem do dia','textarea',true],['report_body','Relato e resumo da reunião','textarea'],['decisions','Deliberações e decisões','textarea'],['status','Situação','select',true,['scheduled','held','cancelled']]
   ]},
   { section: 'comunicacao', table: 'communications', title: 'Comunicação institucional', columns: ['title','channel','audience','scheduled_at','status'], fields: [
     ['title','Título','text',true],['channel','Canal','text'],['audience','Público','text'],['body','Conteúdo','textarea'],['scheduled_at','Agendamento','datetime-local'],['status','Situação','select',false,['draft','scheduled','published','cancelled']]
@@ -228,6 +228,7 @@ async function addDataPanel(module) {
     attachmentArea.hidden = true;
     panel.appendChild(attachmentArea);
   }
+  if(module.table==='meetings'){const calendar=document.createElement('div');calendar.className='anit-meeting-calendar';panel.insertBefore(calendar,panel.querySelector('.anit-form-wrap'));const workspace=document.createElement('div');workspace.className='anit-meeting-workspace panel';workspace.hidden=true;panel.append(workspace);}
   const formWrap = panel.querySelector('.anit-form-wrap');
   const createForm = document.createElement('form');
   createForm.className = 'field-grid anit-create-form';
@@ -305,7 +306,7 @@ async function addDataPanel(module) {
     panel.querySelector('.anit-feedback').textContent = '';
   });
   let attachmentInput = null;
-  if (['official_documents','legal_cases','institutional_relations'].includes(module.table)) {
+  if (['official_documents','legal_cases','institutional_relations','meetings'].includes(module.table)) {
     const attachmentField = document.createElement('div');
     attachmentField.className = 'field';
     attachmentField.style.gridColumn = '1 / -1';
@@ -390,7 +391,7 @@ async function addDataPanel(module) {
         feedback.dataset.kind = 'error';
         return;
       }
-      const attachmentFiles = ['official_documents','legal_cases','institutional_relations'].includes(module.table)
+      const attachmentFiles = ['official_documents','legal_cases','institutional_relations','meetings'].includes(module.table)
         ? [...(attachmentInput?.files || [])].filter(file => file && file.size > 0)
         : [];
       const payload = Object.fromEntries(new FormData(createForm).entries());
@@ -422,7 +423,9 @@ async function addDataPanel(module) {
         }
         let savedDocumentId = editingId;
         if (editingId) {
-          if (module.table === 'institutional_relations') {
+          if(module.table==='meetings'){const b=document.createElement('button');b.type='button';b.className='btn btn-light btn-small';b.textContent='Relatório e acompanhamento';b.addEventListener('click',()=>showMeetingDetails(row));actions.append(b);}
+      if (module.table === 'meetings') { const b=document.createElement('button'); b.type='button'; b.className='btn btn-light btn-small'; b.textContent='Relatório e acompanhamento'; b.addEventListener('click',()=>showMeetingDetails(row)); actions.append(b); }
+      if (module.table === 'institutional_relations') {
           const nextStatus=payload.status || 'active';
           if(!editingId) {
             const {error:historyError}=await neon.from('institutional_relation_updates').insert({
@@ -474,7 +477,7 @@ async function addDataPanel(module) {
           feedback.textContent = 'Registro atualizado com sucesso.';
         } else {
           payload.created_by = activeSessionUser.id;
-          if (['official_documents','legal_cases','institutional_relations'].includes(module.table)) {
+          if (['official_documents','legal_cases','institutional_relations','meetings'].includes(module.table)) {
             const { data: inserted, error } = await neon.from(module.table).insert(payload).select('id').single();
             if (error) throw error;
             savedDocumentId = inserted.id;
@@ -510,6 +513,10 @@ async function addDataPanel(module) {
               return;
             }
           }
+        }
+        if (module.table === 'meetings' && attachmentFiles.length) {
+          try { await uploadMeetingAttachments(savedDocumentId, attachmentFiles); feedback.textContent = 'Reunião salva e anexos armazenados.'; }
+          catch (e) { feedback.textContent = 'Reunião salva, mas houve falha nos anexos: ' + e.message; feedback.dataset.kind = 'error'; await loadTable(module); return; }
         }
         if (module.table === 'official_documents' && attachmentFiles.length) {
           try {
@@ -1072,10 +1079,102 @@ async function showInstitutionalRelationDetails(record) {
   }
 }
 
+
+const MEETING_MIMES={pdf:'application/pdf',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png'};
+async function uploadMeetingAttachments(meetingId,files){
+ if(!meetingId||files.length>10)throw new Error('Reunião inválida ou limite de 10 arquivos excedido.');
+ for(const file of files){
+  const ext=(file.name.split('.').pop()||'').toLowerCase(),mime=MEETING_MIMES[ext];
+  if(!mime||file.size>5242880)throw new Error('Formato não permitido ou arquivo maior que 5 MB: '+file.name);
+  const buf=await file.arrayBuffer(),hash=await crypto.subtle.digest('SHA-256',buf),sum=[...new Uint8Array(hash)].map(v=>v.toString(16).padStart(2,'0')).join('');
+  const bytes=new Uint8Array(buf);let bin='';for(let i=0;i<bytes.length;i+=32768)bin+=String.fromCharCode(...bytes.subarray(i,i+32768));
+  const safe=file.name.replace(/[\\/\\x00-\\x1f]/g,'_').slice(0,240);
+  const {error}=await neon.rpc('store_meeting_attachment',{p_meeting_id:meetingId,p_file_name:safe,p_content_type:mime,p_file_base64:btoa(bin),p_checksum_sha256:sum});
+  if(error)throw error;
+ }
+}
+async function renderMeetingCalendar(){
+ const area=document.querySelector('#data-meetings .anit-meeting-calendar');if(!area)return;
+ const {data,error}=await neon.from('meetings').select('id,meeting_number,title,meeting_type,starts_at,ends_at,location,status,meeting_mode').order('starts_at').limit(300);
+ area.replaceChildren();const h=document.createElement('h3');h.textContent='Agenda institucional';area.append(h);
+ if(error){area.append(document.createTextNode('Falha ao carregar agenda: '+error.message));return;}
+ const now=new Date(),future=(data||[]).filter(x=>x.status==='scheduled'&&new Date(x.starts_at)>=now),held=(data||[]).filter(x=>x.status==='held'),cancelled=(data||[]).filter(x=>x.status==='cancelled');
+ const stats=document.createElement('p');stats.textContent='Próximas: '+future.length+' · Realizadas: '+held.length+' · Canceladas: '+cancelled.length;area.append(stats);
+ const grid=document.createElement('div');grid.className='anit-upcoming-meetings';
+ if(!future.length){const p=document.createElement('p');p.textContent='Nenhuma reunião futura agendada.';grid.append(p);}
+ future.slice(0,8).forEach(item=>{const card=document.createElement('div');card.className='anit-meeting-card';const title=document.createElement('strong');title.textContent=item.title;const date=document.createElement('p');date.textContent=new Date(item.starts_at).toLocaleString('pt-BR')+' · '+(item.location||translateEnum(item.meeting_mode));const open=document.createElement('button');open.type='button';open.className='btn btn-light btn-small';open.textContent='Abrir relatório';open.addEventListener('click',()=>showMeetingDetails(item));card.append(title,date,open);grid.append(card);});
+ area.append(grid);
+}
+async function showMeetingDetails(record){
+ const panel=document.getElementById('data-meetings'),area=panel?.querySelector('.anit-meeting-workspace'),feedback=panel?.querySelector('.anit-feedback');if(!area)return;
+ area.replaceChildren();area.hidden=false;
+ const h=document.createElement('h3');h.textContent='Relatório e acompanhamento — '+record.title;area.append(h);
+ const report=document.createElement('div');report.className='anit-meeting-report';
+ const add=(title,value)=>{const head=document.createElement('h4');head.textContent=title;const p=document.createElement('p');p.style.whiteSpace='pre-wrap';p.textContent=value||'Não informado.';report.append(head,p);};
+ const meta=document.createElement('p');meta.textContent='Reunião nº '+(record.meeting_number||'—')+' · '+new Date(record.starts_at).toLocaleString('pt-BR')+' · '+translateEnum(record.status);report.append(meta);
+ add('Pauta',record.agenda);add('Participantes',record.participants_summary);add('Relato / ata',record.report_body);add('Deliberações',record.decisions);area.append(report);
+ const print=document.createElement('button');print.type='button';print.className='btn btn-light';print.textContent='Imprimir relatório / ata';print.onclick=()=>{const w=window.open('','_blank');if(!w){feedback.textContent='Permita pop-ups para imprimir.';return;}w.document.write('<meta charset="utf-8"><title>Relatório ANIT</title><style>body{font:14px Arial;margin:36px;color:#17324d}p{white-space:pre-wrap;line-height:1.5}</style><h1>ANIT — Relatório de reunião</h1><h2>'+String(record.title).replace(/[&<>]/g,'')+'</h2>'+report.innerHTML);w.document.close();w.print();};area.append(print);
+ const can=canManage('meetings',currentProfile.role);
+ const heading=(text)=>{const x=document.createElement('h4');x.textContent=text;area.append(x);};
+ heading('Participantes e presença');
+ if(can){
+  const form=document.createElement('form');form.className='field-grid anit-create-form';
+  const input=(label,type,required)=>{const d=document.createElement('div');d.className='field';const l=document.createElement('label');l.textContent=label;const i=document.createElement('input');i.type=type;i.required=!!required;d.append(l,i);form.append(d);return i;};
+  const name=input('Nome completo','text',true),role=input('Cargo / instituição','text'),email=input('E-mail','email');
+  const d=document.createElement('div');d.className='field';const l=document.createElement('label');l.textContent='Presença';const status=document.createElement('select');[['invited','Convidado'],['confirmed','Confirmado'],['present','Presente'],['absent','Ausente'],['excused','Justificado']].forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;status.append(o);});d.append(l,status);form.append(d);
+  const save=document.createElement('button');save.type='submit';save.className='btn btn-primary';save.textContent='Adicionar participante';form.append(save);
+  form.onsubmit=async e=>{e.preventDefault();save.disabled=true;const {error}=await neon.from('meeting_attendees').insert({meeting_id:record.id,full_name:name.value,role_or_organization:role.value||null,email:email.value||null,attendance_status:status.value,created_by:currentUser.id});if(error){feedback.textContent=error.message;feedback.dataset.kind='error';}else await showMeetingDetails(record);save.disabled=false;};area.append(form);
+ }
+ const attendees=await neon.from('meeting_attendees').select('full_name,role_or_organization,attendance_status').eq('meeting_id',record.id).order('created_at');
+ if(attendees.error){feedback.textContent=attendees.error.message;feedback.dataset.kind='error';}else{const ul=document.createElement('ul');(attendees.data||[]).forEach(x=>{const li=document.createElement('li');li.textContent=x.full_name+' · '+(x.role_or_organization||'')+' · '+translateEnum(x.attendance_status);ul.append(li);});area.append(ul);}
+ heading('Encaminhamentos e responsáveis');
+ if(can){
+  const form=document.createElement('form');form.className='field-grid anit-create-form';
+  const input=(label,type)=>{const d=document.createElement('div');d.className='field';const l=document.createElement('label');l.textContent=label;const i=document.createElement('input');i.type=type;i.required=true;d.append(l,i);form.append(d);return i;};
+  const task=input('Providência / tarefa','text'),owner=input('Responsável','text'),due=input('Prazo','date');const save=document.createElement('button');save.type='submit';save.className='btn btn-primary';save.textContent='Adicionar encaminhamento';form.append(save);
+  form.onsubmit=async e=>{e.preventDefault();save.disabled=true;const {error}=await neon.from('meeting_action_items').insert({meeting_id:record.id,description:task.value,responsible:owner.value,due_date:due.value||null,created_by:currentUser.id});if(error){feedback.textContent=error.message;feedback.dataset.kind='error';}else await showMeetingDetails(record);save.disabled=false;};area.append(form);
+ }
+ const tasks=await neon.from('meeting_action_items').select('description,responsible,due_date,status').eq('meeting_id',record.id).order('due_date');
+ if(tasks.error){feedback.textContent=tasks.error.message;feedback.dataset.kind='error';}else{const ul=document.createElement('ul');(tasks.data||[]).forEach(x=>{const li=document.createElement('li');li.textContent=x.description+' — '+x.responsible+' · '+(x.due_date||'sem prazo')+' · '+translateEnum(x.status);ul.append(li);});area.append(ul);}
+ heading('Atas, convocações e documentos');
+ if(can){const label=document.createElement('label');label.className='btn btn-primary btn-small';label.textContent='Adicionar anexos';const file=document.createElement('input');file.type='file';file.multiple=true;file.hidden=true;file.accept='.pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png';file.onchange=async()=>{const list=[...file.files].filter(x=>x.size>0);if(!list.length)return;try{await uploadMeetingAttachments(record.id,list);await showMeetingDetails(record);}catch(e){feedback.textContent='Falha no envio: '+e.message;feedback.dataset.kind='error';}finally{file.value='';}};label.append(file);area.append(label);}
+ const files=await neon.from('meeting_attachments').select('id,file_name,file_size').eq('meeting_id',record.id).order('created_at',{ascending:false});
+ if(files.error){feedback.textContent=files.error.message;feedback.dataset.kind='error';}else for(const item of files.data||[]){const row=document.createElement('div');row.className='anit-attachment-row';const name=document.createElement('span');name.textContent=item.file_name+' · '+Math.ceil(item.file_size/1024)+' KB';const download=document.createElement('button');download.type='button';download.className='btn btn-light btn-small';download.textContent='Baixar';download.onclick=async()=>{try{const {data,error}=await neon.from('meeting_attachments').select('file_name,content_type,file_data,checksum_sha256').eq('id',item.id).single();if(error)throw error;const raw=data.file_data;if(typeof raw!=='string'||!raw.startsWith('\\x'))throw new Error('Formato binário não reconhecido');const bytes=new Uint8Array(raw.slice(2).match(/.{1,2}/g).map(v=>parseInt(v,16))),hash=await crypto.subtle.digest('SHA-256',bytes),sum=[...new Uint8Array(hash)].map(v=>v.toString(16).padStart(2,'0')).join('');if(sum!==data.checksum_sha256)throw new Error('Falha na integridade SHA-256');const url=URL.createObjectURL(new Blob([bytes],{type:data.content_type})),a=document.createElement('a');a.href=url;a.download=data.file_name;a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1500);}catch(e){feedback.textContent=e.message;feedback.dataset.kind='error';}};row.append(name,download);area.append(row);}
+}
+
+async function renderMeetingCalendar(){
+ const area=document.querySelector('#data-meetings .anit-meeting-calendar');if(!area)return;
+ const result=await neon.from('meetings').select('id,meeting_number,title,meeting_type,starts_at,location,status,meeting_mode').order('starts_at').limit(300);area.replaceChildren();
+ const h=document.createElement('h3');h.textContent='Agenda institucional';area.append(h);if(result.error){area.append(document.createTextNode('Falha ao carregar agenda: '+result.error.message));return;}
+ const now=new Date(),rows=result.data||[],future=rows.filter(x=>x.status==='scheduled'&&new Date(x.starts_at)>=now),done=rows.filter(x=>x.status==='held'),cancel=rows.filter(x=>x.status==='cancelled');
+ const stats=document.createElement('p');stats.textContent='Próximas: '+future.length+' · Realizadas: '+done.length+' · Canceladas: '+cancel.length;area.append(stats);
+ const grid=document.createElement('div');grid.className='anit-upcoming-meetings';if(!future.length){const p=document.createElement('p');p.textContent='Nenhuma reunião futura agendada.';grid.append(p);}
+ future.slice(0,8).forEach(x=>{const card=document.createElement('div');card.className='anit-meeting-card';const title=document.createElement('strong');title.textContent=x.title;const p=document.createElement('p');p.textContent=new Date(x.starts_at).toLocaleString('pt-BR')+' · '+(x.location||translateEnum(x.meeting_mode));const b=document.createElement('button');b.type='button';b.className='btn btn-light btn-small';b.textContent='Abrir relatório';b.onclick=()=>showMeetingDetails(x);card.append(title,p,b);grid.append(card);});area.append(grid);
+}
+async function showMeetingDetails(record){
+ const panel=document.getElementById('data-meetings'),area=panel?.querySelector('.anit-meeting-workspace'),feedback=panel?.querySelector('.anit-feedback');if(!area)return;area.replaceChildren();area.hidden=false;
+ const h=document.createElement('h3');h.textContent='Relatório e acompanhamento — '+record.title;area.append(h);
+ const report=document.createElement('div');report.className='anit-meeting-report';
+ const add=(title,value)=>{const head=document.createElement('h4');head.textContent=title;const p=document.createElement('p');p.style.whiteSpace='pre-wrap';p.textContent=value||'Não informado.';report.append(head,p);};
+ const meta=document.createElement('p');meta.textContent='Reunião nº '+(record.meeting_number||'—')+' · '+new Date(record.starts_at).toLocaleString('pt-BR')+' · '+translateEnum(record.status);report.append(meta);
+ add('Pauta',record.agenda);add('Participantes',record.participants_summary);add('Relato / ata',record.report_body);add('Deliberações',record.decisions);area.append(report);
+ const print=document.createElement('button');print.type='button';print.className='btn btn-light';print.textContent='Imprimir relatório / ata';print.onclick=()=>{const w=window.open('','_blank');if(!w){feedback.textContent='Permita pop-ups para imprimir.';return;}w.document.write('<meta charset=utf-8><title>Relatório ANIT</title><h1>ANIT — Relatório de reunião</h1>'+report.innerHTML);w.document.close();w.print();};area.append(print);
+ const can=canManage('meetings',currentProfile.role),section=t=>{const x=document.createElement('h4');x.textContent=t;area.append(x);};
+ section('Participantes e presença');
+ if(can){const f=document.createElement('form');f.className='field-grid anit-create-form';const mk=(label,type,req)=>{const d=document.createElement('div');d.className='field';const l=document.createElement('label');l.textContent=label;const i=document.createElement('input');i.type=type;i.required=!!req;d.append(l,i);f.append(d);return i;};const name=mk('Nome completo','text',true),role=mk('Cargo / instituição','text'),email=mk('E-mail','email');const d=document.createElement('div');d.className='field';const l=document.createElement('label');l.textContent='Presença';const status=document.createElement('select');[['invited','Convidado'],['confirmed','Confirmado'],['present','Presente'],['absent','Ausente'],['excused','Justificado']].forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;status.append(o);});d.append(l,status);f.append(d);const b=document.createElement('button');b.type='submit';b.className='btn btn-primary';b.textContent='Adicionar participante';f.append(b);f.onsubmit=async e=>{e.preventDefault();b.disabled=true;const {error}=await neon.from('meeting_attendees').insert({meeting_id:record.id,full_name:name.value,role_or_organization:role.value||null,email:email.value||null,attendance_status:status.value,created_by:currentUser.id});if(error){feedback.textContent=error.message;feedback.dataset.kind='error';}else await showMeetingDetails(record);b.disabled=false;};area.append(f);}
+ const people=await neon.from('meeting_attendees').select('full_name,role_or_organization,attendance_status').eq('meeting_id',record.id).order('created_at');if(people.error){feedback.textContent=people.error.message;}else{const ul=document.createElement('ul');(people.data||[]).forEach(x=>{const li=document.createElement('li');li.textContent=x.full_name+' · '+(x.role_or_organization||'')+' · '+translateEnum(x.attendance_status);ul.append(li);});area.append(ul);}
+ section('Encaminhamentos e responsáveis');
+ if(can){const f=document.createElement('form');f.className='field-grid anit-create-form';const mk=(label,type)=>{const d=document.createElement('div');d.className='field';const l=document.createElement('label');l.textContent=label;const i=document.createElement('input');i.type=type;i.required=true;d.append(l,i);f.append(d);return i;};const desc=mk('Providência / tarefa','text'),owner=mk('Responsável','text'),due=mk('Prazo','date');const b=document.createElement('button');b.type='submit';b.className='btn btn-primary';b.textContent='Adicionar encaminhamento';f.append(b);f.onsubmit=async e=>{e.preventDefault();b.disabled=true;const {error}=await neon.from('meeting_action_items').insert({meeting_id:record.id,description:desc.value,responsible:owner.value,due_date:due.value||null,created_by:currentUser.id});if(error){feedback.textContent=error.message;feedback.dataset.kind='error';}else await showMeetingDetails(record);b.disabled=false;};area.append(f);}
+ const tasks=await neon.from('meeting_action_items').select('description,responsible,due_date,status').eq('meeting_id',record.id).order('due_date');if(tasks.error){feedback.textContent=tasks.error.message;}else{const ul=document.createElement('ul');(tasks.data||[]).forEach(x=>{const li=document.createElement('li');li.textContent=x.description+' — '+x.responsible+' · '+(x.due_date||'sem prazo')+' · '+translateEnum(x.status);ul.append(li);});area.append(ul);}
+ section('Atas, convocações e documentos');
+ if(can){const label=document.createElement('label');label.className='btn btn-primary btn-small';label.textContent='Adicionar anexos';const input=document.createElement('input');input.type='file';input.multiple=true;input.hidden=true;input.accept='.pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png';input.onchange=async()=>{const list=[...input.files].filter(x=>x.size>0);if(!list.length)return;try{await uploadMeetingAttachments(record.id,list);await showMeetingDetails(record);}catch(e){feedback.textContent='Falha no envio: '+e.message;feedback.dataset.kind='error';}finally{input.value='';}};label.append(input);area.append(label);}
+ const files=await neon.from('meeting_attachments').select('id,file_name,file_size').eq('meeting_id',record.id).order('created_at',{ascending:false});if(files.error){feedback.textContent=files.error.message;}else for(const item of files.data||[]){const row=document.createElement('div');row.className='anit-attachment-row';const name=document.createElement('span');name.textContent=item.file_name+' · '+Math.ceil(item.file_size/1024)+' KB';const b=document.createElement('button');b.type='button';b.className='btn btn-light btn-small';b.textContent='Baixar';b.onclick=async()=>{try{const {data,error}=await neon.from('meeting_attachments').select('file_name,content_type,file_data,checksum_sha256').eq('id',item.id).single();if(error)throw error;const raw=data.file_data;if(typeof raw!=='string'||!raw.startsWith('\\x'))throw new Error('Formato binário não reconhecido');const bytes=new Uint8Array(raw.slice(2).match(/.{1,2}/g).map(v=>parseInt(v,16))),hash=await crypto.subtle.digest('SHA-256',bytes),sum=[...new Uint8Array(hash)].map(v=>v.toString(16).padStart(2,'0')).join('');if(sum!==data.checksum_sha256)throw new Error('Falha na integridade SHA-256');const url=URL.createObjectURL(new Blob([bytes],{type:data.content_type})),a=document.createElement('a');a.href=url;a.download=data.file_name;a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1500);}catch(e){feedback.textContent=e.message;feedback.dataset.kind='error';}};row.append(name,b);area.append(row);}
+}
 async function loadTable(module) {
   const panel = document.getElementById('data-' + module.table);
   if (!panel) return;
   const wrap = panel.querySelector('.anit-table-wrap');
+  if (module.table === 'meetings') await renderMeetingCalendar();
   wrap.textContent = 'Carregando registros...';
   const { data, error } = await neon.from(module.table).select('*').order('created_at', { ascending: false }).limit(250);
   if (error) {
@@ -1096,7 +1195,7 @@ async function loadTable(module) {
     th.textContent = formatColumnLabel(column);
     headerRow.appendChild(th);
   });
-  if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases','institutional_relations'].includes(module.table)) {
+  if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases','institutional_relations','meetings'].includes(module.table)) {
     const th=document.createElement('th'); th.textContent='Ações'; headerRow.appendChild(th);
   }
   head.appendChild(headerRow); table.appendChild(head);
