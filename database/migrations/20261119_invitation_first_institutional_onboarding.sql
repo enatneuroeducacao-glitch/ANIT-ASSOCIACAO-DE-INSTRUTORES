@@ -20,7 +20,7 @@ IF v_actor_role IS NULL OR v_actor_role NOT IN ('president','vice_president') TH
 IF v_email !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+[.][A-Z]{2,}$' THEN RAISE EXCEPTION 'Informe um endereço de e-mail válido.'; END IF;
 IF length(v_name)<3 THEN RAISE EXCEPTION 'Informe o nome completo do integrante.'; END IF;
 IF p_role IS NULL OR p_role NOT IN ('treasurer','secretary','director','administrator') THEN RAISE EXCEPTION 'Função institucional inválida.'; END IF;
-IF EXISTS(SELECT 1 FROM neon_auth."user" u WHERE lower(u.email)=v_email) THEN RAISE EXCEPTION 'Este e-mail já possui uma conta de acesso. Solicite a vinculação do perfil existente.'; END IF;
+IF EXISTS(SELECT 1 FROM neon_auth."user" u JOIN anit.user_profiles p ON p.user_id=u.id WHERE lower(u.email)=v_email) THEN RAISE EXCEPTION 'Este e-mail já possui um perfil institucional cadastrado.'; END IF;
 IF EXISTS(SELECT 1 FROM unnest(v_permissions) k WHERE NOT(k=ANY(v_allowed_keys))) THEN RAISE EXCEPTION 'A lista contém uma permissão não reconhecida.'; END IF;
 INSERT INTO anit.pending_user_invitations(email,full_name,role,permissions,invite_token,status,created_by,created_at,expires_at,accepted_at)
 VALUES(v_email,v_name,p_role,v_permissions,gen_random_uuid(),'pending',auth.uid(),now(),now()+interval '14 days',NULL)
