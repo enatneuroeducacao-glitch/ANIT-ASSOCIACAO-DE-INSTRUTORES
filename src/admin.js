@@ -397,8 +397,22 @@ async function addDataPanel(module) {
         }
         let savedDocumentId = editingId;
         if (editingId) {
-          const { error } = await neon.from(module.table).update(payload).eq('id', editingId);
-          if (error) throw error;
+          if (module.table === 'legal_cases') {
+            const { status: nextStatus, ...caseFields } = payload;
+            const { error } = await neon.from(module.table).update(caseFields).eq('id', editingId);
+            if (error) throw error;
+            if (nextStatus && editingOriginalStatus !== nextStatus) {
+              const { error: statusError } = await neon.rpc('update_legal_case_status', {
+                p_case_id: editingId, p_new_status: nextStatus,
+                p_event_date: new Date().toISOString().slice(0,10),
+                p_notes: 'Situação alterada no formulário de edição.'
+              });
+              if (statusError) throw statusError;
+            }
+          } else {
+            const { error } = await neon.from(module.table).update(payload).eq('id', editingId);
+            if (error) throw error;
+          }
           feedback.textContent = 'Registro atualizado com sucesso.';
         } else {
           payload.created_by = activeSessionUser.id;
@@ -424,13 +438,6 @@ async function addDataPanel(module) {
               case_id: savedDocumentId, event_date: new Date().toISOString().slice(0,10),
               previous_status: null, new_status: nextStatus,
               notes: payload.summary || 'Cadastro inicial da demanda jurídica.', created_by: activeSessionUser.id
-            });
-            if (historyError) throw historyError;
-          } else if (editingOriginalStatus && editingOriginalStatus !== nextStatus) {
-            const { error: historyError } = await neon.from('legal_case_updates').insert({
-              case_id: savedDocumentId, event_date: new Date().toISOString().slice(0,10),
-              previous_status: editingOriginalStatus, new_status: nextStatus,
-              notes: 'Situação alterada no formulário de edição.', created_by: activeSessionUser.id
             });
             if (historyError) throw historyError;
           }
@@ -777,13 +784,11 @@ async function showLegalCaseDetails(caseRecord) {
       event.preventDefault(); saveUpdate.disabled=true;
       try {
         const nextStatus=statusInput.value;
-        const {error:updateError}=await neon.from('legal_cases').update({status:nextStatus}).eq('id',caseRecord.id);
-        if(updateError) throw updateError;
-        const {error:logError}=await neon.from('legal_case_updates').insert({
-          case_id:caseRecord.id,event_date:dateInput.value,previous_status:caseRecord.status,
-          new_status:nextStatus,notes:noteInput.value.trim() || null,created_by:currentUser.id
+        const {error:updateError}=await neon.rpc('update_legal_case_status',{
+          p_case_id:caseRecord.id,p_new_status:nextStatus,p_event_date:dateInput.value,
+          p_notes:noteInput.value.trim() || null
         });
-        if(logError) throw logError;
+        if(updateError) throw updateError;
         caseRecord.status=nextStatus;
         noteInput.value='';
         feedback.textContent='Atualização registrada no histórico.';
