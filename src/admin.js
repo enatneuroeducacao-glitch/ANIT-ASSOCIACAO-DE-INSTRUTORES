@@ -1438,7 +1438,7 @@ async function loadUsersAndPermissions() {
       const email=String(userEmail.value||'').trim().toLowerCase();
       verifiedAuthAccount=null;userId.value='';userName.value='';
       permissionFeedback.textContent='';
-      if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){permissionFeedback.textContent='Informe um endereço de e-mail válido.';permissionFeedback.dataset.kind='error';return;}
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){permissionFeedback.textContent='Informe um endereço de e-mail válido.';permissionFeedback.dataset.kind='error';return;}
       findButton.disabled=true;findButton.textContent='Localizando...';
       const {data,error}=await neon.rpc('find_auth_user_by_email',{p_email:email});
       findButton.disabled=false;findButton.textContent='Localizar conta';
