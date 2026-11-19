@@ -62,7 +62,25 @@ form.addEventListener('submit', async event => {
         password,
         name: invitedName
       });
-      if (error) throw new Error(error.message || 'Não foi possível criar sua conta.');
+      if (error) {
+        const signInAttempt = await client.auth.signIn.email({ email: invitedEmail, password, rememberMe: true });
+        if (!signInAttempt.error) {
+          const { error: claimError } = await client.rpc('claim_user_invitation', { p_invite_token: inviteToken });
+          if (claimError) throw new Error(claimError.message || 'Não foi possível vincular seu perfil institucional.');
+          show('Conta existente autenticada e perfil institucional ativado. Você já pode acessar a Central da ANIT.', 'success');
+          button.type = 'button';
+          button.textContent = 'Ir para a Central Administrativa';
+          button.disabled = false;
+          button.onclick = () => { window.location.href = './admin.html'; };
+          return;
+        }
+        const { error: otpError } = await client.auth.emailOtp.sendVerificationOtp({ email: invitedEmail, type: 'email-verification' });
+        if (otpError) throw new Error(error.message || otpError.message || 'Não foi possível criar ou recuperar sua conta.');
+        setStepOtp();
+        show('Encontramos uma conta que ainda precisa confirmar o e-mail. Enviamos um novo código para '+invitedEmail+'.', 'success');
+        setBusy(false);
+        return;
+      }
       setStepOtp();
       show('Conta criada. Enviamos um código de confirmação para '+invitedEmail+'. Informe o código recebido para liberar seu acesso.', 'success');
       setBusy(false);
