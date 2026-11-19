@@ -1843,6 +1843,19 @@ document.addEventListener('DOMContentLoaded', () => {
   styles.textContent = `
     .anit-data-panel{margin-top:18px}.anit-create-form{margin:8px 0 18px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#f9fbfd}.anit-create-form .field{min-width:0}.anit-create-form button{justify-self:start}.anit-feedback{font-size:.82rem;color:var(--muted)}.anit-feedback[data-kind="error"]{color:#a83c3c}.anit-feedback[data-kind="success"]{color:#26734d}.anit-table-wrap{overflow:auto}.anit-table-wrap table{min-width:720px}.anit-toolbar{display:flex;gap:8px;align-items:center}.anit-search{max-width:240px;padding:9px;border:1px solid var(--line);border-radius:8px}.btn-small{padding:6px 9px;margin:2px}.btn-danger{background:#a83232;color:#fff;border:0;border-radius:7px;padding:7px 10px}.anit-report-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:16px 0}.anit-report-cards .stat-card{padding:14px;border:1px solid var(--line);border-radius:10px}.anit-report-cards strong{display:block;font-size:1.25rem}.anit-report-cards span{color:var(--muted);font-size:.85rem}
     #signOutButton{margin-left:12px}.nav button[hidden],[data-go][hidden]{display:none!important}
+    .anit-site-settings-status{padding:12px 15px;border-radius:10px;background:#f1f6fb;color:var(--muted);margin:12px 0 18px;font-size:.88rem}
+    .anit-site-settings-status[data-kind="error"]{background:#fff0f0;color:#a83232}
+    .anit-site-settings-group{border:1px solid var(--line);border-radius:14px;padding:20px;margin:16px 0;background:#fff}
+    .anit-site-settings-heading h3{margin:0 0 4px;color:var(--navy);font-size:1.08rem}
+    .anit-site-settings-heading p{margin:0 0 16px;color:var(--muted);font-size:.86rem}
+    .anit-site-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}
+    .anit-site-settings-grid .field{min-width:0}.anit-site-settings-grid input,.anit-site-settings-grid textarea{width:100%;border:1px solid #cbd8e4;border-radius:10px;padding:12px 13px;font:inherit;color:var(--ink);background:#fff}
+    .anit-site-settings-grid textarea{resize:vertical;min-height:88px}
+    .anit-settings-actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+    .anit-settings-meta{color:var(--muted);font-size:.8rem;margin:10px 0}
+    .anit-advanced-settings{margin-top:24px;padding:14px;border:1px dashed var(--line);border-radius:12px}
+    .anit-advanced-settings summary{cursor:pointer;font-weight:800;color:var(--navy)}
+    @media(max-width:700px){.anit-site-settings-grid{grid-template-columns:1fr}.anit-site-settings-group{padding:15px}}
   `;
   document.head.appendChild(styles);
   boot().catch(err => showMessage(err.message || 'Falha ao iniciar a Central Administrativa.'));
