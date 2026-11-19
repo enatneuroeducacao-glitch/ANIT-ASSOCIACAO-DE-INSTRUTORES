@@ -34,7 +34,7 @@
 
 
 @media(max-width:900px){.menu-toggle{display:block}.navlinks{display:none}.navlinks.open{position:absolute;z-index:50;top:70px;left:0;right:0;background:#fff;border-bottom:1px solid var(--line);padding:16px 22px;display:flex;flex-direction:column;align-items:stretch;gap:10px;max-height:calc(100vh - 80px);overflow-y:auto}.navlinks.open a.nav-home{display:block}.navlinks.open .nav-group{width:100%;border-bottom:1px solid var(--line);padding-bottom:7px}.navlinks.open .nav-group>summary{display:flex}.navlinks.open .nav-dropdown{position:static;box-shadow:none;border:0;border-left:2px solid var(--gold);border-radius:0;margin:4px 0 4px 8px;padding:4px 8px;min-width:0;background:#f7f9fc}.navlinks.open .nav-dropdown a{display:block;padding:9px 12px}.navlinks.open .restricted-link{display:inline-flex;align-self:flex-start}.navlinks.open .btn{display:inline-flex;align-self:flex-start}}
-</style>
+.anit-public-news{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}.anit-news-card{overflow:hidden;border:1px solid var(--line);border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(11,37,69,.06)}.anit-news-card>img{width:100%;height:190px;object-fit:cover;display:block}.anit-news-body{padding:18px}.anit-news-body h3{margin:9px 0}.anit-news-body details{margin-top:12px}.anit-news-body details summary{cursor:pointer;font-weight:700;color:var(--blue)}.anit-brand-logo{display:block;width:100%;height:100%;object-fit:contain}</style>
 </head>
 <body>
 <div class="topbar"><div class="container"><span>Representação • Valorização • Desenvolvimento profissional</span><span>Uma voz coletiva para quem ensina a conduzir</span></div></div>
@@ -223,6 +223,22 @@ function renderManagedPublicContent(settings){
   if(Array.isArray(settings.activities)){
     const root=document.querySelector('#atuacao .cards');if(root){root.replaceChildren();settings.activities.forEach(item=>{const card=document.createElement('article');card.className='card';const icon=document.createElement('div');icon.className='card-icon';icon.textContent=item.icon||'✦';const title=document.createElement('h3');title.textContent=item.title||'';const desc=document.createElement('p');desc.textContent=item.description||'';card.append(icon,title,desc);root.append(card);});if(!settings.activities.length){const empty=document.createElement('p');empty.className='small-note';empty.textContent='As informações desta seção estão em atualização.';root.append(empty);}}
   }
+  if(Array.isArray(settings.news)){
+    const root=document.getElementById('anitPublicNews');
+    if(root){root.replaceChildren();settings.news.forEach(item=>{
+      const card=document.createElement('article');card.className='anit-news-card';
+      const image=safeManagedImage(item.image_data||item.image_url);
+      if(image){const img=document.createElement('img');img.src=image;img.alt=item.title||'Imagem da notícia';img.loading='lazy';card.append(img);}
+      const body=document.createElement('div');body.className='anit-news-body';
+      const meta=document.createElement('span');meta.className='editorial-tag';meta.textContent=[item.category,item.published_at].filter(Boolean).join(' • ')||'Comunicado';
+      const title=document.createElement('h3');title.textContent=item.title||'';
+      const summary=document.createElement('p');summary.textContent=item.summary||'';
+      body.append(meta,title,summary);
+      if(item.body){const details=document.createElement('details');const label=document.createElement('summary');label.textContent='Ler comunicado';const text=document.createElement('p');text.textContent=item.body;details.append(label,text);body.append(details);}
+      const link=safeManagedImage(item.article_url);if(link){const a=document.createElement('a');a.href=link;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Material complementar →';body.append(a);}
+      card.append(body);root.append(card);
+    });if(!settings.news.length)root.append(Object.assign(document.createElement('p'),{className:'small-note',textContent:'Novos comunicados serão publicados em breve.'}));}
+  }
   if(Array.isArray(settings.articles)){
     const root=document.querySelector('#artigos .editorial-grid');if(root){root.replaceChildren();settings.articles.forEach(item=>{const card=document.createElement('article');card.className='editorial-card';const image=safeManagedImage(item.image_data||item.image_url);if(image){const img=document.createElement('img');img.className='anit-managed-cover';img.src=image;img.alt=item.title||'Imagem do artigo';img.loading='lazy';card.append(img);}else{const art=document.createElement('div');art.className='editorial-art';art.textContent=item.category||'Artigo';card.append(art);}const body=document.createElement('div');body.className='editorial-body';const tag=document.createElement('span');tag.className='editorial-tag';tag.textContent=item.category||'Artigo';const title=document.createElement('h3');title.textContent=item.title||'';const summary=document.createElement('p');summary.textContent=item.summary||'';body.append(tag,title,summary);if(item.author){const author=document.createElement('p');author.className='anit-content-author';author.textContent='Por '+item.author;body.append(author);}if(item.body){const content=document.createElement('details');content.className='anit-article-full';const summaryLabel=document.createElement('summary');summaryLabel.textContent='Ler artigo completo';const articleBody=document.createElement('div');articleBody.className='anit-article-body';articleBody.textContent=item.body;content.append(summaryLabel,articleBody);body.append(content);}const url=safeManagedImage(item.article_url);if(url){const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Material complementar →';body.append(link);}card.append(body);root.append(card);});if(!settings.articles.length){const empty=document.createElement('p');empty.className='small-note';empty.textContent='Novos artigos serão publicados em breve.';root.append(empty);}}
     document.querySelector('#artigos .small-note')?.remove();
@@ -247,7 +263,7 @@ async function loadPublicSiteSettings(){
 
     renderManagedPublicContent(settings);
         if(settings.identity_name){
-      document.querySelectorAll('.brand-mark').forEach(node=>node.textContent=settings.identity_name);
+      if(!safeManagedImage(settings.logo_data||settings.logo_url))document.querySelectorAll('.brand-mark').forEach(node=>node.textContent=settings.identity_name);
       document.querySelectorAll('.brand span:nth-child(2)').forEach(node=>{if(node.firstChild&&node.firstChild.nodeType===Node.TEXT_NODE)node.firstChild.nodeValue=settings.identity_name;});
     }
     if(settings.identity_descriptor)document.querySelectorAll('.brand small').forEach(node=>node.textContent=settings.identity_descriptor);
