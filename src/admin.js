@@ -24,7 +24,7 @@ const ENUM_LABELS = {
   income: 'Receita', expense: 'Despesa', paid: 'Pago',
   cancelled: 'Cancelado', overdue: 'Em atraso',
   incoming: 'Recebido', outgoing: 'Enviado', internal: 'Interno',
-  open: 'Aberto', in_progress: 'Em andamento', answered: 'Respondido',
+  open: 'Aberto', in_analysis: 'Em análise', awaiting_documents: 'Aguardando documentos', awaiting_response: 'Aguardando resposta', in_progress: 'Em andamento', decision_issued: 'Decisão proferida', appeal: 'Em recurso', answered: 'Respondido',
   archived: 'Arquivado', public: 'Público', restricted: 'Restrito',
   confidential: 'Confidencial', monitoring: 'Em acompanhamento',
   closed: 'Concluído', paused: 'Pausado', scheduled: 'Agendado',
@@ -34,6 +34,7 @@ const ENUM_LABELS = {
   repealed: 'Revogada integralmente',
   vigente: 'Vigente', 'em revisão': 'Em revisão', substituído: 'Substituído',
   vencido: 'Vencido', arquivado: 'Arquivado',
+  administrativa: 'Administrativa', judicial: 'Judicial', extrajudicial: 'Extrajudicial', regulatoria: 'Regulatória', consulta: 'Consulta', representacao: 'Representação',
   federal: 'Federal', estadual: 'Estadual', municipal: 'Municipal',
   institucional: 'Institucional'
 };
@@ -41,7 +42,7 @@ const ENUM_LABELS = {
 const COLUMN_LABELS = {
   membership_number: 'Matrícula', full_name: 'Nome completo', email: 'E-mail',
   phone: 'Telefone', city: 'Cidade', state: 'UF', category: 'Categoria',
-  status: 'Situação', office: 'Cargo', term_start: 'Início do mandato',
+  status: 'Situação', case_type: 'Tipo de demanda', opposing_party: 'Parte relacionada', office: 'Cargo', term_start: 'Início do mandato',
   term_end: 'Fim do mandato', entry_type: 'Tipo', description: 'Descrição',
   amount: 'Valor', competence_date: 'Competência', due_date: 'Vencimento',
   payment_method: 'Forma de pagamento', protocol_number: 'Número do protocolo',
@@ -100,8 +101,16 @@ const MODULES = [
     ['confidentiality','Classificação de acesso','select',true,['internal','public','restricted','confidential']],
     ['description','Ementa / descrição','textarea']
   ]},
-  { section: 'juridico', table: 'legal_cases', title: 'Demandas jurídicas', columns: ['title','case_number','institution','status','deadline'], fields: [
-    ['title','Título','text',true],['case_number','Número do processo','text'],['institution','Órgão/Instituição','text'],['deadline','Prazo','date'],['status','Situação','select',false,['open','monitoring','closed','suspended']],['summary','Resumo','textarea']
+  { section: 'juridico', table: 'legal_cases', title: 'Demandas e processos jurídicos', columns: ['title','case_type','case_number','institution','priority','status','deadline'], fields: [
+    ['title','Título / assunto','text',true],
+    ['case_type','Tipo de demanda','select',true,['administrativa','judicial','extrajudicial','regulatoria','consulta','representacao']],
+    ['case_number','Número do processo / protocolo','text'],
+    ['institution','Órgão / instituição responsável','text'],
+    ['opposing_party','Parte relacionada / interessado','text'],
+    ['priority','Prioridade','select',true,['low','normal','high','urgent']],
+    ['deadline','Prazo / próxima data limite','date'],
+    ['status','Situação atual','select',true,['open','in_analysis','awaiting_documents','awaiting_response','in_progress','decision_issued','appeal','suspended','closed','archived']],
+    ['summary','Resumo / histórico inicial','textarea']
   ]},
   { section: 'juridico', table: 'legal_references', title: 'Legislação e normas', columns: ['title','norm_type','issuing_body','reference_number','jurisdiction','published_on','effective_on','status'], fields: [
     ['title','Título da norma','text',true],['norm_type','Tipo de norma','select',true,['Lei','Decreto','Resolução','Portaria','Deliberação','Instrução normativa','Medida provisória','Outro']],['issuing_body','Órgão emissor','text'],['reference_number','Número / identificação','text'],['jurisdiction','Abrangência','select',true,['federal','estadual','municipal','institucional']],['published_on','Data de publicação','date'],['effective_on','Início da vigência','date'],['status','Situação','select',true,['draft','active','revoked','repealed']],['source_url','Link da fonte oficial','url'],['summary','Ementa / observações','textarea']
