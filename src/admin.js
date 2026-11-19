@@ -1682,7 +1682,7 @@ async function loadSettings(){
    const heading=document.createElement('div');heading.className='anit-site-settings-heading';const title=document.createElement('h3');title.textContent=group.title;const desc=document.createElement('p');desc.textContent=group.description;heading.append(title,desc);pane.append(heading);
    const grid=document.createElement('div');grid.className='anit-site-settings-grid';
    group.fields.forEach(([key,label,type])=>{
-     if(type==='image'){const field=makeImageField(key,label,saved[key],value=>{saved[key]=value;});grid.append(field);return;}
+     if(type==='image'){const legacy=key==='logo_data'?saved.logo_url:key==='favicon_data'?saved.favicon_url:'';const field=makeImageField(key,label,saved[key]||legacy,value=>{saved[key]=value;if(key==='logo_data')saved.logo_url='';if(key==='favicon_data')saved.favicon_url='';});grid.append(field);return;}
      const field=document.createElement('div');field.className='field'+(type==='textarea'?' full':'');const caption=document.createElement('label');caption.htmlFor='site-'+key;caption.textContent=label;
      const input=type==='textarea'?document.createElement('textarea'):document.createElement('input');input.id='site-'+key;input.name=key;input.type=type==='textarea'?'text':type;if(type==='textarea')input.rows=3;input.value=saved[key]??'';field.append(caption,input);grid.append(field);
    });
