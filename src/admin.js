@@ -1458,7 +1458,7 @@ async function loadUsersAndPermissions() {
       invitationResult.hidden=true;invitationResult.replaceChildren();
       const email=String(userForm.elements.email.value||'').trim().toLowerCase();
       const fullName=String(userForm.elements.full_name.value||'').trim();
-      if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){permissionFeedback.textContent='Informe um endereço de e-mail válido.';permissionFeedback.dataset.kind='error';return;}
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){permissionFeedback.textContent='Informe um endereço de e-mail válido.';permissionFeedback.dataset.kind='error';return;}
       if(fullName.length<3){permissionFeedback.textContent='Informe o nome completo do integrante.';permissionFeedback.dataset.kind='error';return;}
       const selected=[...permissionGrid.querySelectorAll('input[name="permissions"]:checked')].map(input=>input.value);
       const saveButton=userForm.querySelector('button[type="submit"]');
