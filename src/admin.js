@@ -1570,10 +1570,10 @@ async function boot() {
   for (const module of MODULES.filter(item => roleAllowed(item.section, currentProfile.role))) {
     await addDataPanel(module);
   }
-  await loadDashboardStats();
+  if (roleAllowed('dashboard', currentProfile.role)) await loadDashboardStats();
   await loadAudit();
-  await loadUsersAndPermissions();
-  await loadReports();
+  if (roleAllowed('usuarios', currentProfile.role) || ['president','vice_president'].includes(currentProfile.role)) await loadUsersAndPermissions();
+  if (roleAllowed('relatorios', currentProfile.role)) await loadReports();
   if (['president','vice_president'].includes(currentProfile.role)) await loadSettings();
   if (currentProfile.role === 'administrator') await loadTechnicalPanel();
 }
