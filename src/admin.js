@@ -1404,7 +1404,8 @@ async function loadUsersAndPermissions() {
     ['meetings.read','Consultar reuniões e agenda'],['meetings.manage','Gerenciar reuniões'],
     ['communications.read','Consultar comunicação oficial'],['communications.manage','Gerenciar comunicação'],
     ['demands.read','Consultar demandas dos associados'],['demands.manage','Gerenciar demandas'],
-    ['reports.read','Consultar relatórios'],['reports.manage','Gerenciar relatórios']
+    ['reports.read','Consultar relatórios'],['reports.manage','Gerenciar relatórios'],
+    ['system.read','Consultar configurações e diagnóstico'],['audit.read','Consultar auditoria técnica']
   ];
   const canGrant=key=>top||(role==='treasurer'&&key.startsWith('finance.'))||(role==='secretary'&&['associates.','demands.','documents.','protocols.','meetings.','communications.'].some(p=>key.startsWith(p)));
   const permissionGrid=panel.querySelector('#anit-role-permissions');
