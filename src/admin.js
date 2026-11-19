@@ -193,6 +193,9 @@ async function addDataPanel(module) {
   panel.innerHTML = '<div class="panel-head"><h2></h2><div class="anit-toolbar"><input class="anit-search" type="search" placeholder="Buscar registros"><button class="btn btn-light anit-refresh" type="button">Atualizar</button></div></div><div class="anit-form-wrap"></div><div class="anit-table-wrap"></div><p class="anit-feedback" role="status"></p>';
   panel.querySelector('h2').textContent = module.title;
   section.appendChild(panel);
+  if (module.table === 'legal_cases') {
+    const legalArea=document.createElement('div'); legalArea.className='anit-legal-details panel'; legalArea.hidden=true; panel.appendChild(legalArea);
+  }
   if (module.table === 'official_documents') {
     const attachmentArea = document.createElement('div');
     attachmentArea.className = 'anit-attachments panel';
@@ -672,6 +675,167 @@ async function showOfficialDocumentAttachments(docRecord) {
   area.hidden = false;
 }
 
+const LEGAL_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+const LEGAL_ATTACHMENT_TYPES = new Map([
+  ['pdf','application/pdf'],
+  ['docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ['jpg','image/jpeg'], ['jpeg','image/jpeg'], ['png','image/png']
+]);
+
+async function uploadLegalCaseAttachments(caseId, files, userId) {
+  if (!caseId) throw new Error('Demanda jurídica não identificada.');
+  if (files.length > 10) throw new Error('Envie no máximo 10 anexos por operação.');
+  for (const file of files) {
+    const extension = (file.name.split('.').pop() || '').toLowerCase();
+    const contentType = LEGAL_ATTACHMENT_TYPES.get(extension);
+    if (!contentType) throw new Error('Formato não permitido: ' + file.name);
+    if (file.size > LEGAL_ATTACHMENT_MAX_BYTES) throw new Error('O arquivo ' + file.name + ' ultrapassa 5 MB.');
+    const buffer = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    const checksum = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,'0')).join('');
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let offset=0; offset<bytes.length; offset+=0x8000) binary += String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
+    const safeName = Array.from(file.name).map(char => char === '/' || char === String.fromCharCode(92) || char.charCodeAt(0)<32 ? '_' : char).join('').slice(0,240);
+    const { error } = await neon.rpc('store_legal_case_attachment', {
+      p_case_id: caseId, p_file_name: safeName, p_content_type: contentType,
+      p_file_base64: btoa(binary), p_checksum_sha256: checksum
+    });
+    if (error) throw new Error('Falha ao armazenar ' + safeName + ': ' + error.message);
+  }
+}
+
+async function showLegalCaseDetails(caseRecord) {
+  const panel = window.document.getElementById('data-legal_cases');
+  const feedback = panel?.querySelector('.anit-feedback');
+  const area = panel?.querySelector('.anit-legal-details');
+  if (!panel || !area || !feedback) return;
+  area.replaceChildren();
+  area.hidden = false;
+  const heading = window.document.createElement('h3');
+  heading.textContent = 'Acompanhamento — ' + caseRecord.title;
+  area.appendChild(heading);
+  const canEdit = canManage('legal_cases',currentProfile.role);
+  if (canEdit) {
+    const updateForm = window.document.createElement('form');
+    updateForm.className = 'field-grid anit-create-form';
+    const dateField = window.document.createElement('div'); dateField.className='field';
+    const dateLabel = window.document.createElement('label'); dateLabel.textContent='Data da atualização';
+    const dateInput = window.document.createElement('input'); dateInput.type='date'; dateInput.required=true;
+    dateInput.value = new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+    dateField.append(dateLabel,dateInput);
+    const statusField = window.document.createElement('div'); statusField.className='field';
+    const statusLabel = window.document.createElement('label'); statusLabel.textContent='Nova situação';
+    const statusInput = window.document.createElement('select');
+    ['open','in_analysis','awaiting_documents','awaiting_response','in_progress','decision_issued','appeal','suspended','closed','archived'].forEach(value=>{
+      const option=window.document.createElement('option'); option.value=value; option.textContent=translateEnum(value); statusInput.appendChild(option);
+    });
+    statusInput.value=caseRecord.status; statusField.append(statusLabel,statusInput);
+    const noteField = window.document.createElement('div'); noteField.className='field'; noteField.style.gridColumn='1 / -1';
+    const noteLabel = window.document.createElement('label'); noteLabel.textContent='Descrição da movimentação / providência';
+    const noteInput = window.document.createElement('textarea'); noteInput.rows=3; noteInput.placeholder='Descreva o andamento, decisão, contato ou providência...';
+    noteField.append(noteLabel,noteInput);
+    const saveUpdate = window.document.createElement('button'); saveUpdate.type='submit'; saveUpdate.className='btn btn-primary'; saveUpdate.textContent='Registrar atualização';
+    updateForm.append(dateField,statusField,noteField,saveUpdate);
+    updateForm.addEventListener('submit',async event=>{
+      event.preventDefault(); saveUpdate.disabled=true;
+      try {
+        const nextStatus=statusInput.value;
+        const {error:updateError}=await neon.from('legal_cases').update({status:nextStatus}).eq('id',caseRecord.id);
+        if(updateError) throw updateError;
+        const {error:logError}=await neon.from('legal_case_updates').insert({
+          case_id:caseRecord.id,event_date:dateInput.value,previous_status:caseRecord.status,
+          new_status:nextStatus,notes:noteInput.value.trim() || null,created_by:currentUser.id
+        });
+        if(logError) throw logError;
+        caseRecord.status=nextStatus;
+        noteInput.value='';
+        feedback.textContent='Atualização registrada no histórico.';
+        feedback.dataset.kind='success';
+        await loadTable(MODULES.find(item=>item.table==='legal_cases'));
+        await showLegalCaseDetails(caseRecord);
+      } catch(error) {
+        feedback.textContent='Não foi possível registrar a atualização: '+error.message;
+        feedback.dataset.kind='error';
+      } finally { saveUpdate.disabled=false; }
+    });
+    area.appendChild(updateForm);
+  }
+  const attachmentTitle=window.document.createElement('h4'); attachmentTitle.textContent='Anexos do processo';
+  area.appendChild(attachmentTitle);
+  if (canEdit) {
+    const uploadLabel=window.document.createElement('label'); uploadLabel.className='btn btn-primary btn-small'; uploadLabel.textContent='Adicionar anexos';
+    const uploadInput=window.document.createElement('input'); uploadInput.type='file'; uploadInput.multiple=true; uploadInput.accept='.pdf,.docx,.xlsx,.jpg,.jpeg,.png'; uploadInput.hidden=true;
+    uploadInput.addEventListener('change',async()=>{
+      const files=[...uploadInput.files].filter(file=>file.size>0); if(!files.length)return;
+      uploadLabel.textContent='Enviando...'; uploadLabel.style.pointerEvents='none';
+      try { await uploadLegalCaseAttachments(caseRecord.id,files,currentUser.id); feedback.textContent='Anexos armazenados.'; feedback.dataset.kind='success'; await showLegalCaseDetails(caseRecord); }
+      catch(error){feedback.textContent='Falha no envio: '+error.message;feedback.dataset.kind='error';}
+      finally{uploadLabel.textContent='Adicionar anexos';uploadLabel.style.pointerEvents='';uploadInput.value='';}
+    });
+    uploadLabel.appendChild(uploadInput); area.appendChild(uploadLabel);
+  }
+  const [updatesResult,filesResult]=await Promise.all([
+    neon.from('legal_case_updates').select('id,event_date,previous_status,new_status,notes,created_at').eq('case_id',caseRecord.id).order('event_date',{ascending:false}),
+    neon.from('legal_case_attachments').select('id,file_name,content_type,file_size,created_at,checksum_sha256').eq('case_id',caseRecord.id).order('created_at',{ascending:false})
+  ]);
+  if(updatesResult.error || filesResult.error) {
+    feedback.textContent='Não foi possível carregar todo o acompanhamento: '+(updatesResult.error?.message || filesResult.error?.message);
+    feedback.dataset.kind='error'; return;
+  }
+  const historyTitle=window.document.createElement('h4'); historyTitle.textContent='Histórico de movimentações';
+  area.appendChild(historyTitle);
+  if(!updatesResult.data?.length) {
+    const empty=window.document.createElement('p'); empty.textContent='Nenhuma movimentação registrada ainda.'; area.appendChild(empty);
+  }
+  for(const item of updatesResult.data || []) {
+    const line=window.document.createElement('div'); line.className='anit-attachment-row';
+    const label=window.document.createElement('span');
+    label.textContent=new Date(item.event_date+'T12:00:00').toLocaleDateString('pt-BR')+' · '+translateEnum(item.new_status)+(item.previous_status?' (anterior: '+translateEnum(item.previous_status)+')':'')+(item.notes?' — '+item.notes:'');
+    line.appendChild(label); area.appendChild(line);
+  }
+  const filesTitle=window.document.createElement('h4'); filesTitle.textContent='Arquivos anexados';
+  area.appendChild(filesTitle);
+  if(!filesResult.data?.length) {
+    const empty=window.document.createElement('p'); empty.textContent='Nenhum anexo cadastrado.'; area.appendChild(empty);
+  }
+  for(const item of filesResult.data || []) {
+    const line=window.document.createElement('div'); line.className='anit-attachment-row';
+    const label=window.document.createElement('span'); label.textContent=item.file_name+' · '+(item.file_size/1024).toFixed(0)+' KB';
+    const download=window.document.createElement('button'); download.type='button'; download.className='btn btn-light btn-small'; download.textContent='Baixar';
+    download.addEventListener('click',async()=>{
+      download.disabled=true;
+      try {
+        const {data:fileRow,error}=await neon.from('legal_case_attachments').select('file_name,content_type,file_data,checksum_sha256').eq('id',item.id).single();
+        if(error)throw error;
+        const raw=fileRow.file_data;
+        if(typeof raw!=='string'||!raw.startsWith('\\\\x'))throw new Error('Formato binário não reconhecido.');
+        const bytes=new Uint8Array(raw.slice(2).match(/.{1,2}/g).map(pair=>parseInt(pair,16)));
+        const digest=await crypto.subtle.digest('SHA-256',bytes);
+        const checksum=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+        if(checksum!==fileRow.checksum_sha256)throw new Error('Falha na verificação de integridade SHA-256.');
+        const url=URL.createObjectURL(new Blob([bytes],{type:fileRow.content_type}));
+        const link=window.document.createElement('a'); link.href=url; link.download=fileRow.file_name; link.click();
+        window.setTimeout(()=>URL.revokeObjectURL(url),1500);
+      } catch(error){feedback.textContent='Não foi possível baixar: '+error.message;feedback.dataset.kind='error';}
+      finally{download.disabled=false;}
+    });
+    line.append(label,download);
+    if(canEdit) {
+      const remove=window.document.createElement('button'); remove.type='button'; remove.className='btn btn-danger btn-small'; remove.textContent='Excluir';
+      remove.addEventListener('click',async()=>{
+        if(!window.confirm('Excluir este anexo permanentemente?'))return;
+        const {error}=await neon.from('legal_case_attachments').delete().eq('id',item.id);
+        if(error){feedback.textContent='Não foi possível excluir: '+error.message;feedback.dataset.kind='error';return;}
+        await showLegalCaseDetails(caseRecord);
+      });
+      line.appendChild(remove);
+    }
+    area.appendChild(line);
+  }
+}
+
 async function loadTable(module) {
   const panel = document.getElementById('data-' + module.table);
   if (!panel) return;
@@ -711,6 +875,10 @@ async function loadTable(module) {
     });
     if (canManage(module.table,currentProfile.role) || module.table === 'official_documents') {
       const actions=document.createElement('td');
+      if (module.table === 'legal_cases') {
+        const followup=document.createElement('button'); followup.type='button'; followup.className='btn btn-light btn-small'; followup.textContent='Acompanhamento';
+        followup.addEventListener('click',()=>showLegalCaseDetails(row)); actions.append(followup);
+      }
       if (module.table === 'official_documents') {
         const attachments = document.createElement('button');
         attachments.type='button'; attachments.className='btn btn-light btn-small'; attachments.textContent='Anexos';
