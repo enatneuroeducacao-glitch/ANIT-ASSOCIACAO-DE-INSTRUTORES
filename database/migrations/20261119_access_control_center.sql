@@ -176,7 +176,7 @@ BEGIN
   FOR r IN SELECT * FROM (VALUES
     ('associates','associates'),('board_members','board'),
     ('financial_entries','finance'),('protocols','protocols'),
-    ('official_documents','documents'),('legal_cases','legal'),
+    ('legal_cases','legal'),
     ('legal_references','legal'),('institutional_relations','institutional'),
     ('meetings','meetings'),('meeting_attendees','meetings'),
     ('meeting_action_items','meetings'),('meeting_attachments','meetings'),
@@ -195,13 +195,27 @@ BEGIN
   END LOOP;
 END $$;
 
--- Documentos oficiais: anexos continuam condicionados ao acesso ao documento.
+-- Documentos oficiais: manter a classificação de sigilo também nos anexos.
+DROP POLICY IF EXISTS official_documents_read ON anit.official_documents;
+DROP POLICY IF EXISTS official_documents_manage ON anit.official_documents;
 DROP POLICY IF EXISTS documents_manage ON anit.official_documents;
 DROP POLICY IF EXISTS documents_read ON anit.official_documents;
 CREATE POLICY documents_read ON anit.official_documents FOR SELECT TO authenticated
  USING (anit.has_permission('documents.read') AND
    ((confidentiality NOT IN ('restricted','confidential')) OR anit.has_permission('documents.manage')));
 CREATE POLICY documents_manage ON anit.official_documents FOR ALL TO authenticated
+ USING (anit.has_permission('documents.manage'))
+ WITH CHECK (anit.has_permission('documents.manage'));
+
+DROP POLICY IF EXISTS official_document_attachments_read ON anit.official_document_attachments;
+DROP POLICY IF EXISTS official_document_attachments_manage ON anit.official_document_attachments;
+CREATE POLICY official_document_attachments_read ON anit.official_document_attachments FOR SELECT TO authenticated
+ USING (anit.has_permission('documents.read') AND EXISTS (
+   SELECT 1 FROM anit.official_documents d
+    WHERE d.id = official_document_attachments.document_id
+      AND ((d.confidentiality NOT IN ('restricted','confidential')) OR anit.has_permission('documents.manage'))
+ ));
+CREATE POLICY official_document_attachments_manage ON anit.official_document_attachments FOR ALL TO authenticated
  USING (anit.has_permission('documents.manage'))
  WITH CHECK (anit.has_permission('documents.manage'));
 
