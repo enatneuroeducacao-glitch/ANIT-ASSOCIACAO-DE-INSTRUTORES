@@ -307,7 +307,7 @@ async function addDataPanel(module) {
     panel.querySelector('.anit-feedback').textContent = '';
   });
   let attachmentInput = null;
-  if (['official_documents','legal_cases'].includes(module.table)) {
+  if (['official_documents','legal_cases','institutional_relations'].includes(module.table)) {
     const attachmentField = document.createElement('div');
     attachmentField.className = 'field';
     attachmentField.style.gridColumn = '1 / -1';
@@ -352,7 +352,7 @@ async function addDataPanel(module) {
     input.id = module.table + '-' + name;
     input.name = name;
     if (module.table === 'official_documents' && name === 'version') input.value = '1';
-    if (module.table === 'legal_cases' && name === 'priority') input.value = 'normal';
+    if (['legal_cases','institutional_relations'].includes(module.table) && name === 'priority') input.value = 'normal';
     if (module.table === 'protocols' && name === 'protocol_number') {
       input.readOnly = true;
       input.placeholder = 'Gerado automaticamente ao iniciar novo protocolo';
@@ -392,7 +392,7 @@ async function addDataPanel(module) {
         feedback.dataset.kind = 'error';
         return;
       }
-      const attachmentFiles = ['official_documents','legal_cases'].includes(module.table)
+      const attachmentFiles = ['official_documents','legal_cases','institutional_relations'].includes(module.table)
         ? [...(attachmentInput?.files || [])].filter(file => file && file.size > 0)
         : [];
       const payload = Object.fromEntries(new FormData(createForm).entries());
@@ -425,16 +425,45 @@ async function addDataPanel(module) {
         let savedDocumentId = editingId;
         if (editingId) {
           if (module.table === 'institutional_relations') {
-        const followup=document.createElement('button'); followup.type='button'; followup.className='btn btn-light btn-small'; followup.textContent='Acompanhamento';
-        followup.addEventListener('click',()=>showInstitutionalRelationDetails(row)); actions.append(followup);
-      }
-      if (module.table === 'legal_cases') {
+          const nextStatus=payload.status || 'active';
+          if(!editingId) {
+            const {error:historyError}=await neon.from('institutional_relation_updates').insert({
+              relation_id:savedDocumentId,event_date:new Date().toISOString().slice(0,10),
+              previous_status:null,new_status:nextStatus,
+              notes:payload.notes || 'Cadastro inicial do relacionamento institucional.',
+              created_by:activeSessionUser.id
+            });
+            if(historyError)throw historyError;
+          }
+          if(attachmentFiles.length) {
+            try {
+              await uploadInstitutionalAttachments(savedDocumentId,attachmentFiles);
+              feedback.textContent='Relação institucional salva e anexo(s) armazenado(s).';
+            } catch(attachmentError) {
+              feedback.textContent='A relação foi salva, mas houve falha ao armazenar os anexos: '+attachmentError.message+'. Use Acompanhamento para tentar novamente.';
+              feedback.dataset.kind='error'; await loadTable(module); return;
+            }
+          }
+        }
+        if (module.table === 'legal_cases') {
             const { status: nextStatus, ...caseFields } = payload;
             const { error } = await neon.from(module.table).update(caseFields).eq('id', editingId);
             if (error) throw error;
             if (nextStatus && editingOriginalStatus !== nextStatus) {
               const { error: statusError } = await neon.rpc('update_legal_case_status', {
                 p_case_id: editingId, p_new_status: nextStatus,
+                p_event_date: new Date().toISOString().slice(0,10),
+                p_notes: 'Situação alterada no formulário de edição.'
+              });
+              if (statusError) throw statusError;
+            }
+          } else if (module.table === 'institutional_relations') {
+            const { status: nextStatus, ...relationFields } = payload;
+            const { error } = await neon.from(module.table).update(relationFields).eq('id', editingId);
+            if (error) throw error;
+            if (nextStatus && editingOriginalStatus !== nextStatus) {
+              const { error: statusError } = await neon.rpc('update_institutional_relation_status', {
+                p_relation_id: editingId, p_new_status: nextStatus,
                 p_event_date: new Date().toISOString().slice(0,10),
                 p_notes: 'Situação alterada no formulário de edição.'
               });
@@ -1069,7 +1098,7 @@ async function loadTable(module) {
     th.textContent = formatColumnLabel(column);
     headerRow.appendChild(th);
   });
-  if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases'].includes(module.table)) {
+  if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases','institutional_relations'].includes(module.table)) {
     const th=document.createElement('th'); th.textContent='Ações'; headerRow.appendChild(th);
   }
   head.appendChild(headerRow); table.appendChild(head);
@@ -1084,6 +1113,10 @@ async function loadTable(module) {
     });
     if (canManage(module.table,currentProfile.role) || ['official_documents','legal_cases'].includes(module.table)) {
       const actions=document.createElement('td');
+      if (module.table === 'institutional_relations') {
+        const followup=document.createElement('button'); followup.type='button'; followup.className='btn btn-light btn-small'; followup.textContent='Acompanhamento';
+        followup.addEventListener('click',()=>showInstitutionalRelationDetails(row)); actions.append(followup);
+      }
       if (module.table === 'legal_cases') {
         const followup=document.createElement('button'); followup.type='button'; followup.className='btn btn-light btn-small'; followup.textContent='Acompanhamento';
         followup.addEventListener('click',()=>showLegalCaseDetails(row)); actions.append(followup);
