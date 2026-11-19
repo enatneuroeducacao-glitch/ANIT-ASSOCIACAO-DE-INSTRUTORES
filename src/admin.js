@@ -512,6 +512,10 @@ async function addDataPanel(module) {
             }
           }
         }
+        if (module.table === 'meetings' && attachmentFiles.length) {
+          try { await uploadMeetingAttachments(savedDocumentId, attachmentFiles); feedback.textContent = 'Reunião salva e anexos armazenados.'; }
+          catch (e) { feedback.textContent = 'Reunião salva, mas houve falha nos anexos: ' + e.message; feedback.dataset.kind = 'error'; await loadTable(module); return; }
+        }
         if (module.table === 'official_documents' && attachmentFiles.length) {
           try {
             await uploadOfficialDocumentAttachments(savedDocumentId, attachmentFiles, activeSessionUser.id);
