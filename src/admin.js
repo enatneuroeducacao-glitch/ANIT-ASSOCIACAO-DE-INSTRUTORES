@@ -1080,7 +1080,7 @@ async function showInstitutionalRelationDetails(record) {
 }
 
 
-const MEETING_MIMES={pdf:'application/pdf',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png'};
+const MEETING_MIMES={pdf:'application/pdf',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png'};
 async function uploadMeetingAttachments(meetingId,files){
  if(!meetingId||files.length>10)throw new Error('Reunião inválida ou limite de 10 arquivos excedido.');
  for(const file of files){
@@ -1095,15 +1095,36 @@ async function uploadMeetingAttachments(meetingId,files){
 }
 async function renderMeetingCalendar(){
  const area=document.querySelector('#data-meetings .anit-meeting-calendar');if(!area)return;
- const {data,error}=await neon.from('meetings').select('id,meeting_number,title,meeting_type,starts_at,ends_at,location,status,meeting_mode').order('starts_at').limit(300);
- area.replaceChildren();const h=document.createElement('h3');h.textContent='Agenda institucional';area.append(h);
- if(error){area.append(document.createTextNode('Falha ao carregar agenda: '+error.message));return;}
- const now=new Date(),future=(data||[]).filter(x=>x.status==='scheduled'&&new Date(x.starts_at)>=now),held=(data||[]).filter(x=>x.status==='held'),cancelled=(data||[]).filter(x=>x.status==='cancelled');
- const stats=document.createElement('p');stats.textContent='Próximas: '+future.length+' · Realizadas: '+held.length+' · Canceladas: '+cancelled.length;area.append(stats);
- const grid=document.createElement('div');grid.className='anit-upcoming-meetings';
- if(!future.length){const p=document.createElement('p');p.textContent='Nenhuma reunião futura agendada.';grid.append(p);}
- future.slice(0,8).forEach(item=>{const card=document.createElement('div');card.className='anit-meeting-card';const title=document.createElement('strong');title.textContent=item.title;const date=document.createElement('p');date.textContent=new Date(item.starts_at).toLocaleString('pt-BR')+' · '+(item.location||translateEnum(item.meeting_mode));const open=document.createElement('button');open.type='button';open.className='btn btn-light btn-small';open.textContent='Abrir relatório';open.addEventListener('click',()=>showMeetingDetails(item));card.append(title,date,open);grid.append(card);});
+ const result=await neon.from('meetings').select('id,meeting_number,title,meeting_type,starts_at,ends_at,location,status,meeting_mode').order('starts_at').limit(300);
+ if(result.error){area.textContent='Falha ao carregar agenda: '+result.error.message;return;}
+ const rows=result.data||[],now=new Date();
+ if(!area._month)area._month=new Date(now.getFullYear(),now.getMonth(),1);
+ const month=new Date(area._month.getFullYear(),area._month.getMonth(),1),year=month.getFullYear(),monthIndex=month.getMonth();
+ area.replaceChildren();
+ const top=document.createElement('div');top.className='anit-calendar-head';
+ const title=document.createElement('h3');title.textContent='Agenda institucional — '+month.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+ const prev=document.createElement('button');prev.type='button';prev.className='btn btn-light btn-small';prev.textContent='‹ Mês anterior';prev.onclick=()=>{area._month=new Date(year,monthIndex-1,1);renderMeetingCalendar();};
+ const next=document.createElement('button');next.type='button';next.className='btn btn-light btn-small';next.textContent='Próximo mês ›';next.onclick=()=>{area._month=new Date(year,monthIndex+1,1);renderMeetingCalendar();};
+ top.append(prev,title,next);area.append(top);
+ const future=rows.filter(x=>x.status==='scheduled'&&new Date(x.starts_at)>=now),held=rows.filter(x=>x.status==='held'),cancelled=rows.filter(x=>x.status==='cancelled');
+ const stats=document.createElement('p');stats.className='anit-calendar-stats';stats.textContent='Próximas: '+future.length+' · Realizadas: '+held.length+' · Canceladas: '+cancelled.length;area.append(stats);
+ const grid=document.createElement('div');grid.className='anit-calendar-grid';
+ ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(day=>{const cell=document.createElement('div');cell.className='anit-calendar-weekday';cell.textContent=day;grid.append(cell);});
+ const offset=month.getDay(),days=new Date(year,monthIndex+1,0).getDate();
+ for(let n=0;n<offset;n++){const blank=document.createElement('div');blank.className='anit-calendar-blank';grid.append(blank);}
+ for(let day=1;day<=days;day++){
+  const cell=document.createElement('div');cell.className='anit-calendar-day';
+  const number=document.createElement('strong');number.textContent=String(day);cell.append(number);
+  const dayRows=rows.filter(x=>{const d=new Date(x.starts_at);return d.getFullYear()===year&&d.getMonth()===monthIndex&&d.getDate()===day;});
+  dayRows.forEach(item=>{const event=document.createElement('button');event.type='button';event.className='anit-calendar-event '+(item.status==='cancelled'?'is-cancelled':item.status==='held'?'is-held':'');event.textContent=new Date(item.starts_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' '+item.title;event.title=item.title+' — '+translateEnum(item.status);event.onclick=()=>showMeetingDetails(item);cell.append(event);});
+  grid.append(cell);
+ }
  area.append(grid);
+ const upcomingTitle=document.createElement('h4');upcomingTitle.textContent='Próximas reuniões';area.append(upcomingTitle);
+ const upcoming=document.createElement('div');upcoming.className='anit-upcoming-meetings';
+ if(!future.length){const p=document.createElement('p');p.textContent='Nenhuma reunião futura agendada.';upcoming.append(p);}
+ future.slice(0,8).forEach(item=>{const card=document.createElement('div');card.className='anit-meeting-card';const name=document.createElement('strong');name.textContent=item.title;const date=document.createElement('p');date.textContent=new Date(item.starts_at).toLocaleString('pt-BR')+' · '+(item.location||translateEnum(item.meeting_mode));const open=document.createElement('button');open.type='button';open.className='btn btn-light btn-small';open.textContent='Abrir reunião';open.onclick=()=>showMeetingDetails(item);card.append(name,date,open);upcoming.append(card);});
+ area.append(upcoming);
 }
 async function showMeetingDetails(record){
  const panel=document.getElementById('data-meetings'),area=panel?.querySelector('.anit-meeting-workspace'),feedback=panel?.querySelector('.anit-feedback');if(!area)return;
@@ -1137,7 +1158,7 @@ async function showMeetingDetails(record){
  const tasks=await neon.from('meeting_action_items').select('description,responsible,due_date,status').eq('meeting_id',record.id).order('due_date');
  if(tasks.error){feedback.textContent=tasks.error.message;feedback.dataset.kind='error';}else{const ul=document.createElement('ul');(tasks.data||[]).forEach(x=>{const li=document.createElement('li');li.textContent=x.description+' — '+x.responsible+' · '+(x.due_date||'sem prazo')+' · '+translateEnum(x.status);ul.append(li);});area.append(ul);}
  heading('Atas, convocações e documentos');
- if(can){const label=document.createElement('label');label.className='btn btn-primary btn-small';label.textContent='Adicionar anexos';const file=document.createElement('input');file.type='file';file.multiple=true;file.hidden=true;file.accept='.pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png';file.onchange=async()=>{const list=[...file.files].filter(x=>x.size>0);if(!list.length)return;try{await uploadMeetingAttachments(record.id,list);await showMeetingDetails(record);}catch(e){feedback.textContent='Falha no envio: '+e.message;feedback.dataset.kind='error';}finally{file.value='';}};label.append(file);area.append(label);}
+ if(can){const label=document.createElement('label');label.className='btn btn-primary btn-small';label.textContent='Adicionar anexos';const file=document.createElement('input');file.type='file';file.multiple=true;file.hidden=true;file.accept='.pdf,.docx,.xlsx,.jpg,.jpeg,.png';file.onchange=async()=>{const list=[...file.files].filter(x=>x.size>0);if(!list.length)return;try{await uploadMeetingAttachments(record.id,list);await showMeetingDetails(record);}catch(e){feedback.textContent='Falha no envio: '+e.message;feedback.dataset.kind='error';}finally{file.value='';}};label.append(file);area.append(label);}
  const files=await neon.from('meeting_attachments').select('id,file_name,file_size').eq('meeting_id',record.id).order('created_at',{ascending:false});
  if(files.error){feedback.textContent=files.error.message;feedback.dataset.kind='error';}else for(const item of files.data||[]){const row=document.createElement('div');row.className='anit-attachment-row';const name=document.createElement('span');name.textContent=item.file_name+' · '+Math.ceil(item.file_size/1024)+' KB';const download=document.createElement('button');download.type='button';download.className='btn btn-light btn-small';download.textContent='Baixar';download.onclick=async()=>{try{const {data,error}=await neon.from('meeting_attachments').select('file_name,content_type,file_data,checksum_sha256').eq('id',item.id).single();if(error)throw error;const raw=data.file_data;if(typeof raw!=='string'||!raw.startsWith('\\x'))throw new Error('Formato binário não reconhecido');const bytes=new Uint8Array(raw.slice(2).match(/.{1,2}/g).map(v=>parseInt(v,16))),hash=await crypto.subtle.digest('SHA-256',bytes),sum=[...new Uint8Array(hash)].map(v=>v.toString(16).padStart(2,'0')).join('');if(sum!==data.checksum_sha256)throw new Error('Falha na integridade SHA-256');const url=URL.createObjectURL(new Blob([bytes],{type:data.content_type})),a=document.createElement('a');a.href=url;a.download=data.file_name;a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1500);}catch(e){feedback.textContent=e.message;feedback.dataset.kind='error';}};row.append(name,download);area.append(row);}
 }
