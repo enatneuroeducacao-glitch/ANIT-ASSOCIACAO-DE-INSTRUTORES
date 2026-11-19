@@ -1095,7 +1095,7 @@ async function uploadMeetingAttachments(meetingId,files){
 }
 async function renderMeetingCalendar(){
  const area=document.querySelector('#data-meetings .anit-meeting-calendar');if(!area)return;
- const result=await neon.from('meetings').select('id,meeting_number,title,meeting_type,starts_at,ends_at,location,status,meeting_mode').order('starts_at').limit(300);
+ const result=await neon.from('meetings').select('*').order('starts_at').limit(300);
  if(result.error){area.textContent='Falha ao carregar agenda: '+result.error.message;return;}
  const rows=result.data||[],now=new Date();
  if(!area._month)area._month=new Date(now.getFullYear(),now.getMonth(),1);
