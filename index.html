@@ -77,11 +77,11 @@
 <div class="field"><label for="atuacaoProf">Área de atuação</label><select id="atuacaoProf" name="atuacaoProf"><option value="">Selecione</option><option>Instrutor autônomo</option><option>Instrutor vinculado a autoescola</option><option>Gestor de CFC</option><option>Profissional de trânsito</option><option>Outro</option></select></div>
 <div class="field"><label for="cidade">Cidade/UF</label><input id="cidade" name="cidade" placeholder="Ex.: Joinville/SC"></div>
 <div class="field full"><label for="assunto">Assunto</label><select id="assunto" name="assunto"><option>Quero informações sobre associação</option><option>Representação profissional</option><option>Parceria institucional</option><option>Capacitação e eventos</option><option>Outro assunto</option></select></div>
-<div class="field full"><label for="mensagem">Mensagem *</label><textarea id="mensagem" name="mensagem" required placeholder="Conte brevemente como podemos ajudar."></textarea></div>
+<div class="field full"><label for="mensagem">Mensagem *</label><textarea id="mensagem" name="mensagem" required placeholder="Conte brevemente como podemos ajudar."></textarea></div>\n<div class="field" aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden"><label for="contactWebsite">Não preencher</label><input id="contactWebsite" name="website" tabindex="-1" autocomplete="off"></div>
 <div class="field full"><label style="display:flex;gap:10px;align-items:flex-start;font-weight:500"><input type="checkbox" id="consentimento" required style="width:auto;margin-top:5px"> Concordo em utilizar os dados informados para tratar esta solicitação de contato.</label></div>
-<div class="field full"><button class="btn btn-primary" type="submit">Preparar mensagem <span aria-hidden="true">→</span></button></div>
+<div class="field full"><button class="btn btn-primary" type="submit">Enviar solicitação <span aria-hidden="true">→</span></button></div>
 <div class="form-message" id="formMessage" role="status"></div>
-</form><p class="note">Importante: este formulário ainda não transmite nem armazena dados. Ao enviar, ele prepara um resumo para você copiar. Um canal institucional ou serviço de formulários deverá ser conectado para receber mensagens diretamente.</p></div></div></section>
+</form><p class="note">Sua solicitação será encaminhada automaticamente à Central Administrativa da ANIT. Guarde o número de protocolo exibido após o envio. Seus dados serão utilizados para análise e resposta da solicitação.</p></div></div></section>
 </main>
 <footer class="footer"><div class="container"><div class="footer-grid"><div><a class="brand" href="#inicio"><span class="brand-mark">ANIT</span><span>ANIT<small>ASSOCIAÇÃO DE INSTRUTORES</small></span></a><p>Valorização profissional, formação de qualidade e compromisso com um trânsito mais seguro e humano.</p></div><div class="footer-links"><a href="#sobre">Quem somos</a><a href="#atuacao">Atuação</a><a href="#noticias">Notícias</a><a href="#artigos">Artigos</a><a href="#galeria">Galeria</a><a href="#associar">Associe-se</a><a href="#contato">Contato</a><a href="admin.html">Central Administrativa</a></div></div><div class="copyright"><span>© <span id="year"></span> ANIT. Todos os direitos reservados.</span><span>Site institucional • Informações sujeitas à confirmação oficial da entidade.</span></div></div></footer>
 <script>
@@ -89,8 +89,31 @@ const menuToggle=document.getElementById('menuToggle');const navLinks=document.g
 menuToggle.addEventListener('click',()=>{const open=navLinks.classList.toggle('open');menuToggle.setAttribute('aria-expanded',String(open));menuToggle.textContent=open?'×':'☰'});
 navLinks.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{navLinks.classList.remove('open');menuToggle.setAttribute('aria-expanded','false');menuToggle.textContent='☰'}));
 document.getElementById('year').textContent=new Date().getFullYear();
-document.getElementById('contactForm').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget;const data=Object.fromEntries(new FormData(f).entries());const text='CONTATO ANIT\n\nNome: '+data.nome+'\nE-mail: '+data.email+'\nÁrea de atuação: '+(data.atuacaoProf||'Não informado')+'\nCidade/UF: '+(data.cidade||'Não informado')+'\nAssunto: '+data.assunto+'\n\nMensagem:\n'+data.mensagem;try{await navigator.clipboard.writeText(text);document.getElementById('formMessage').textContent='Mensagem organizada e copiada para a área de transferência. Como o site ainda não tem um canal de envio conectado, encaminhe o texto ao contato institucional da ANIT quando divulgado.'}catch{document.getElementById('formMessage').textContent='Formulário validado. O envio automático ainda não está conectado; copie os dados preenchidos e encaminhe pelo canal institucional da ANIT quando divulgado.'}document.getElementById('formMessage').style.display='block';});
+
 </script>
+
+<script type="module">
+import { NEON_DATA_API_URL } from './src/config.js';
+const contactForm=document.getElementById('contactForm');
+contactForm?.addEventListener('submit',async event=>{
+ event.preventDefault();
+ const feedback=document.getElementById('formMessage');
+ const button=contactForm.querySelector('button[type="submit"]');
+ const values=Object.fromEntries(new FormData(contactForm).entries());
+ if(values.website)return;
+ if(!document.getElementById('consentimento').checked){feedback.textContent='Autorize o uso dos dados para enviar sua solicitação.';feedback.style.display='block';return;}
+ if(!NEON_DATA_API_URL){feedback.textContent='O recebimento eletrônico está temporariamente indisponível. Tente novamente mais tarde.';feedback.style.display='block';return;}
+ button.disabled=true;button.textContent='Enviando solicitação...';feedback.style.display='none';
+ try{
+  const response=await fetch(NEON_DATA_API_URL.replace(/\/$/,'')+'/rpc/submit_public_member_demand',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({p_name:values.nome,p_email:values.email,p_area:values.atuacaoProf||'',p_city:values.cidade||'',p_subject:values.assunto,p_message:values.mensagem,p_consent:true})});
+  if(!response.ok){let detail='Não foi possível registrar sua solicitação.';try{const error=await response.json();if(error.message)detail=error.message}catch{}throw new Error(detail);}
+  const result=await response.json();const item=Array.isArray(result)?result[0]:result;if(!item?.reference_code)throw new Error('O sistema não confirmou o número de protocolo.');
+  contactForm.reset();feedback.textContent='Solicitação recebida pela ANIT com sucesso. Seu protocolo é '+item.reference_code+'. Guarde este número para acompanhar o atendimento.';feedback.dataset.kind='success';
+ }catch(error){feedback.textContent='Não foi possível enviar sua solicitação: '+error.message+' Se o problema persistir, tente novamente mais tarde.';feedback.dataset.kind='error';}
+ finally{feedback.style.display='block';button.disabled=false;button.innerHTML='Enviar solicitação <span aria-hidden="true">→</span>';}
+});
+</script>
+
 <script type="module">
 import { createClient } from '@neondatabase/neon-js';
 import { NEON_DATA_API_URL } from './src/config.js';

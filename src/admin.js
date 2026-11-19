@@ -27,7 +27,7 @@ const ROLE_LABELS = {
 };
 
 const ENUM_LABELS = {
-  pending: 'Pendente', active: 'Ativo', suspended: 'Suspenso',
+  pending: 'Pendente', active: 'Ativo', suspended: 'Suspenso', site_contact: 'Site público', admin: 'Cadastro administrativo', public_contact: 'Contato pelo site', membership: 'Filiação', financial: 'Financeiro', legal: 'Jurídico', institutional: 'Institucional', other: 'Outro',
   resigned: 'Desligado a pedido', excluded: 'Excluído',
   ended: 'Encerrado', revoked: 'Revogado',
   income: 'Receita', expense: 'Despesa', paid: 'Pago',
@@ -73,7 +73,7 @@ const COLUMN_LABELS = {
   contact_name: 'Nome do contato', next_action_at: 'Próxima ação', relation_type: 'Natureza da relação', institution_type: 'Tipo de instituição', channel: 'Canal de contato', last_contact_at: 'Último contato',
   meeting_type: 'Tipo de reunião', starts_at: 'Início', ends_at: 'Término',
   location: 'Local', channel: 'Canal', audience: 'Público',
-  scheduled_at: 'Agendamento', published_at: 'Data de publicação', category: 'Tipo de publicação', summary: 'Resumo / chamada', body: 'Conteúdo', cover_image_url: 'Imagem de capa', attachment_url: 'Documento anexo', attachment_label: 'Nome do anexo', priority: 'Prioridade',
+  scheduled_at: 'Agendamento', published_at: 'Data de publicação', category: 'Classificação', summary: 'Resumo / chamada', body: 'Conteúdo', cover_image_url: 'Imagem de capa', attachment_url: 'Documento anexo', attachment_label: 'Nome do anexo', priority: 'Prioridade', source: 'Origem', requester_name: 'Solicitante', requester_email: 'E-mail do solicitante', requester_area: 'Área de atuação', requester_city: 'Cidade/UF', reference_code: 'Protocolo', internal_notes: 'Observações internas', responsible_user_id: 'Responsável (UUID)', contact_consent_at: 'Consentimento registrado',
   responsible_user_id: 'Responsável',
   norm_type: 'Tipo de norma', issuing_body: 'Órgão emissor',
   reference_number: 'Número / identificação', jurisdiction: 'Abrangência',
@@ -147,8 +147,8 @@ const MODULES = [
   { section: 'comunicacao', table: 'communications', title: 'Comunicação institucional', columns: ['title','category','status','scheduled_at','approved_at','published_at'], fields: [
     ['title','Título da publicação','text',true],['category','Tipo de publicação','select',true,['noticia','comunicado_oficial','nota_publica','nota_esclarecimento','nota_repudio','convocacao','circular','informativo','campanha','posicionamento','relatorio','artigo','outro']],['summary','Resumo / chamada','textarea'],['body','Conteúdo completo','textarea',true],['cover_image_url','Endereço da imagem de capa (URL)','url'],['attachment_label','Nome do documento anexo','text'],['attachment_url','Endereço do documento anexo (URL)','url'],['audience','Público destinatário','text'],['channel','Destino','select',true,['public_site','public_site_and_social','internal']],['scheduled_at','Data e horário previstos','datetime-local'],['status','Situação editorial','select',true,['draft','scheduled','cancelled']]
   ]},
-  { section: 'demandas', table: 'member_demands', title: 'Demandas dos associados', columns: ['subject','priority','status','due_date','responsible_user_id'], fields: [
-    ['subject','Assunto','text',true],['description','Descrição','textarea'],['priority','Prioridade','select',false,['low','normal','high','urgent']],['status','Situação','select',false,['open','in_progress','waiting','resolved','closed']],['due_date','Prazo','date']
+  { section: 'demandas', table: 'member_demands', title: 'Demandas dos associados', columns: ['reference_code','source','requester_name','requester_email','requester_area','requester_city','subject','category','priority','status','due_date','responsible_user_id','created_at'], fields: [
+    ['subject','Assunto','text',true],['category','Classificação','select',true,['public_contact','membership','financial','legal','institutional','other']],['description','Descrição da solicitação','textarea'],['priority','Prioridade','select',false,['low','normal','high','urgent']],['status','Situação','select',false,['open','in_progress','waiting','resolved','closed']],['responsible_user_id','Responsável pelo atendimento','select',false,[]],['due_date','Prazo','date'],['internal_notes','Observações internas (não visíveis ao solicitante)','textarea']
   ]}
 ];
 
@@ -216,6 +216,7 @@ async function addDataPanel(module) {
   panel.innerHTML = '<div class="panel-head"><h2></h2><div class="anit-toolbar"><input class="anit-search" type="search" placeholder="Buscar registros"><button class="btn btn-light anit-refresh" type="button">Atualizar</button></div></div><div class="anit-form-wrap"></div><div class="anit-table-wrap"></div><p class="anit-feedback" role="status"></p>';
   panel.querySelector('h2').textContent = module.title;
   section.appendChild(panel);
+  if(module.table==='member_demands'){const note=document.createElement('div');note.className='notice';note.textContent='As mensagens enviadas pelo formulário de contato do site público são registradas automaticamente aqui, com número de protocolo, dados do solicitante e situação inicial “Aberto”. A equipe deve classificar, definir prioridade, designar responsável, estabelecer prazo e atualizar a situação. Observações internas não são exibidas ao solicitante.';panel.appendChild(note);}
   if(module.table==='communications'){const note=document.createElement('div');note.className='notice';note.textContent='Rascunhos e agendamentos ficam restritos à Central. Somente Presidência ou Administrador pode aprovar publicações. Conteúdos agendados e aprovados aparecem no portal automaticamente na data definida. Imagens e documentos devem usar endereços HTTPS públicos; não inclua links privados.';panel.appendChild(note);}
   if (module.table === 'legal_cases') {
     const legalArea=document.createElement('div'); legalArea.className='anit-legal-details panel'; legalArea.hidden=true; panel.appendChild(legalArea);
@@ -378,6 +379,18 @@ async function addDataPanel(module) {
         option.textContent = type;
         return option;
       }));
+    }
+  }
+
+  if (module.table === 'member_demands') {
+    const responsible = createForm.elements.namedItem('responsible_user_id');
+    if (responsible) {
+      const { data: profiles, error: profileError } = await neon.from('user_profiles').select('user_id,full_name,role').eq('active',true).order('full_name');
+      if (!profileError && Array.isArray(profiles)) {
+        responsible.replaceChildren();
+        const empty = document.createElement('option'); empty.value=''; empty.textContent='Não designado'; responsible.append(empty);
+        profiles.forEach(profile => { const option=document.createElement('option'); option.value=profile.user_id; option.textContent=profile.full_name+' — '+(ROLE_LABELS[profile.role]||translateEnum(profile.role)); responsible.append(option); });
+      }
     }
   }
 
