@@ -306,7 +306,7 @@ async function addDataPanel(module) {
     panel.querySelector('.anit-feedback').textContent = '';
   });
   let attachmentInput = null;
-  if (['official_documents','legal_cases','institutional_relations'].includes(module.table)) {
+  if (['official_documents','legal_cases','institutional_relations','meetings'].includes(module.table)) {
     const attachmentField = document.createElement('div');
     attachmentField.className = 'field';
     attachmentField.style.gridColumn = '1 / -1';
@@ -391,7 +391,7 @@ async function addDataPanel(module) {
         feedback.dataset.kind = 'error';
         return;
       }
-      const attachmentFiles = ['official_documents','legal_cases','institutional_relations'].includes(module.table)
+      const attachmentFiles = ['official_documents','legal_cases','institutional_relations','meetings'].includes(module.table)
         ? [...(attachmentInput?.files || [])].filter(file => file && file.size > 0)
         : [];
       const payload = Object.fromEntries(new FormData(createForm).entries());
@@ -475,7 +475,7 @@ async function addDataPanel(module) {
           feedback.textContent = 'Registro atualizado com sucesso.';
         } else {
           payload.created_by = activeSessionUser.id;
-          if (['official_documents','legal_cases','institutional_relations'].includes(module.table)) {
+          if (['official_documents','legal_cases','institutional_relations','meetings'].includes(module.table)) {
             const { data: inserted, error } = await neon.from(module.table).insert(payload).select('id').single();
             if (error) throw error;
             savedDocumentId = inserted.id;
